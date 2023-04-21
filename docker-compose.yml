@@ -1,6 +1,13 @@
 version: '3.9'
 
 services:
+  rabbit:
+    container_name: rabbit
+    build:
+      context: ./rabbit
+      dockerfile: Dockerfile
+    ports:
+      - "15672:15672"
 
   client:
     container_name: client
@@ -26,13 +33,70 @@ services:
     entrypoint: python /main.py
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
+      - LOGGING_LEVEL=INFO
       - APP_ENTRYPOINT=Loader
       - PORT=8888
     ports:
       - "8888:8888"
-    # depends_on:
-    #  - rabbit
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+
+  trips_consumer1:
+    container_name: trips_consumer1
+    image: trips_consumer:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Trips_Consumer
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  trips_consumer2:
+    container_name: trips_consumer2
+    image: trips_consumer:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Trips_Consumer
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  trips_consumer3:
+    container_name: trips_consumer3
+    image: trips_consumer:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Trips_Consumer
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
     volumes:
       - type: bind
         source: ./server/config.ini

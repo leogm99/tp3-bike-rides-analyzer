@@ -22,13 +22,22 @@ def main():
             port=int(config_params['port']),
             backlog=int(config_params['backlog']),
             rabbit_hostname=config_params['rabbit_hostname'],
-            weather_queue='',
-            stations_queue='',
-            trips_queue='',
-            static_data_ack_queue='',
+            data_exchange='data',
+            exchange_type='direct',
         )
         loader.run()
+    elif app_entrypoint == 'Trips_Consumer':
+        from common.consumer.trips_consumer import TripsConsumer
+        trips_consumer = TripsConsumer(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            data_exchange='data',
+            exchange_type='direct',
+            trips_queue_name='trips',
+        )
+        trips_consumer.run()
 
 
 if __name__ == '__main__':
+    from time import sleep
+    sleep(10)
     main()

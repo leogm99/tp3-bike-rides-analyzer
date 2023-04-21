@@ -3,11 +3,10 @@ import socket
 import logging
 import signal
 import json
-import struct
 from multiprocessing import Process, Lock
 from common.utils import get_file_paths_by_city_and_type
 from typing import Dict
-from common_utils.utils import receive_string_message, recv_n_bytes, send_string_message
+from common_utils.utils import send_string_message
 
 
 class Client:
@@ -28,9 +27,9 @@ class Client:
         except socket.error as e:
             logging.error(f'action: init_client | status: failed | reason: {str(e)}')
             raise e
+        signal.signal(signal.SIGTERM, lambda _: self.stop())
 
     def run(self):
-        signal.signal(signal.SIGTERM, lambda _: self.stop())
         logging.info('action: register_sigterm | status: success')
         files_paths_by_city_and_type = get_file_paths_by_city_and_type(self._data_path)
 
@@ -43,6 +42,8 @@ class Client:
         weather_sender.join()
         stations_sender.join()
         logging.debug(f'action: sending_static_data | status: success')
+        from time import sleep
+        sleep(1000)
         self.stop()
 
     def __send_csv_data(self, paths_by_city_and_type: Dict[str, Dict[str, str]], data_type: str):
@@ -54,10 +55,15 @@ class Client:
                     # todo: consider encapsulating this inside a protocol module or similar
                     message = {'type': data_type, 'city': city, 'payload': row}
                     json_message = json.dumps(message)
-                    send_string_message(self._socket.sendall, json_message, 4)
+                    send_string_message(self.__send_all, json_message, 4)
         eof_data = {'type': data_type, 'payload': "EOF"}
         json_eof_data = json.dumps(eof_data)
-        send_string_message(self._socket.sendall, json_eof_data, 4)
+        send_string_message(self.__send_all, json_eof_data, 4)
+
+    def __send_all(self, payload):
+        """Process safe send_all"""
+        with self._rwlock:
+            self._socket.sendall(payload)
 
     def stop(self):
         self._socket.shutdown(socket.SHUT_RDWR)
