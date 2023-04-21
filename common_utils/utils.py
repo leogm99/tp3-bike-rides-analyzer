@@ -44,3 +44,29 @@ def recv_n_bytes(sock: socket.socket, n: int):
             raise BrokenPipeError
         current_received += bytes_recv
     return recv_buffer
+
+
+def receive_string_message(recv_handle, string_byte_length):
+    import struct
+    payload_size_buffer = recv_handle(string_byte_length)
+    format_char = ''
+    if string_byte_length == 2:
+        format_char = 'H'
+    elif string_byte_length == 4:
+        format_char = 'I'
+    payload_size = struct.unpack(f'!{format_char}', payload_size_buffer)[0]
+    string_payload = recv_handle(payload_size)
+    return struct.unpack(f'{payload_size}s', string_payload)[0]
+
+
+def send_string_message(send_handle, string_message, string_byte_length):
+    import struct
+    format_char = ''
+    if string_byte_length == 2:
+        format_char = 'H'
+    elif string_byte_length == 4:
+        format_char = 'I'
+    string_encoded = string_message.encode('utf8')
+    len_encoding = len(string_encoded)
+    payload = struct.pack(f'!{format_char}{len_encoding}s', len_encoding, string_encoded)
+    send_handle(payload)

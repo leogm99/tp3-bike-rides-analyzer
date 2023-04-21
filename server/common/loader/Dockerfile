@@ -1,6 +1,6 @@
 FROM server:latest
 
-COPY ./server/common/loader /
-COPY ./server/utils /
+COPY ./server/utils /utils
 COPY ./common_utils /common_utils
-COPY ./server/main.py /
+COPY ./server/common/loader /common/loader
+COPY ./server/main.py /main.py
