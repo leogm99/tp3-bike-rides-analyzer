@@ -16,8 +16,8 @@ services:
       - type: bind
         source: ./client/config.ini
         target: /config.ini
-    # depends_on:
-    #  - loader
+    depends_on:
+      - loader
     restart: on-failure
 
   loader:
@@ -28,6 +28,9 @@ services:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
       - APP_ENTRYPOINT=Loader
+      - PORT=8888
+    ports:
+      - "8888:8888"
     # depends_on:
     #  - rabbit
     volumes:

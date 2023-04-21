@@ -38,7 +38,7 @@ def recv_n_bytes(sock: socket.socket, n: int):
         raise ValueError("Should be called with a positive amount of bytes to receive")
     recv_buffer = bytearray(n)
     current_received = 0
-    while len(recv_buffer) != n:
+    while current_received != n:
         bytes_recv = sock.recv_into(memoryview(recv_buffer)[current_received:])
         if bytes_recv == 0:
             raise BrokenPipeError
@@ -46,17 +46,17 @@ def recv_n_bytes(sock: socket.socket, n: int):
     return recv_buffer
 
 
-def receive_string_message(recv_handle, string_byte_length):
+def receive_string_message(recv_handle, sock, string_byte_length):
     import struct
-    payload_size_buffer = recv_handle(string_byte_length)
+    payload_size_buffer = recv_handle(sock, string_byte_length)
     format_char = ''
     if string_byte_length == 2:
         format_char = 'H'
     elif string_byte_length == 4:
         format_char = 'I'
     payload_size = struct.unpack(f'!{format_char}', payload_size_buffer)[0]
-    string_payload = recv_handle(payload_size)
-    return struct.unpack(f'{payload_size}s', string_payload)[0]
+    string_payload = recv_handle(sock, payload_size)
+    return struct.unpack(f'{payload_size}s', string_payload)[0].decode('utf8')
 
 
 def send_string_message(send_handle, string_message, string_byte_length):
