@@ -102,3 +102,75 @@ services:
         source: ./server/config.ini
         target: /config.ini
     restart: on-failure
+
+  trips_consumer4:
+    container_name: trips_consumer4
+    image: trips_consumer:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Trips_Consumer
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  trips_consumer5:
+    container_name: trips_consumer5
+    image: trips_consumer:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Trips_Consumer
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  stations_consumer1:
+    container_name: stations_consumer1
+    image: stations_consumer:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Stations_Consumer
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  weather_consumer1:
+    container_name: weather_consumer1
+    image: weather_consumer:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Weather_Consumer
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure

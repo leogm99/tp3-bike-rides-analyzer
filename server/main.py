@@ -27,14 +27,40 @@ def main():
         )
         loader.run()
     elif app_entrypoint == 'Trips_Consumer':
-        from common.consumer.trips_consumer import TripsConsumer
+        from common.consumers.trips_consumer.trips_consumer import TripsConsumer
         trips_consumer = TripsConsumer(
             rabbit_hostname=config_params['rabbit_hostname'],
             data_exchange='data',
             exchange_type='direct',
             trips_queue_name='trips',
+            mean_trip_time_joiner_exchange_name='mean_trip_time_joiner',
+            mean_trip_time_joiner_exchange_type='fanout',
+            trip_year_filter_routing_key='trip_year_filter',
+            montreal_trips_filter_routing_key='montreal_trips_filter',
         )
         trips_consumer.run()
+    elif app_entrypoint == 'Stations_Consumer':
+        from common.consumers.stations_consumer.stations_consumer import StationsConsumer
+        stations_consumer = StationsConsumer(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            data_exchange='data',
+            exchange_type='direct',
+            stations_queue_name='stations',
+            duplicated_stations_departures_exchange_name='duplicated_stations_joiner',
+            duplicated_stations_departures_exchange_type='fanout',
+            montreal_stations_filter_routing_key='montreal_stations_filter',
+        )
+        stations_consumer.run()
+    elif app_entrypoint == 'Weather_Consumer':
+        from common.consumers.weather_consumer.weather_consumer import WeatherConsumer
+        weather_consumer = WeatherConsumer(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            data_exchange='data',
+            exchange_type='direct',
+            weather_queue_name='weather',
+            precipitation_filter_routing_key='precipitation_filter',
+        )
+        weather_consumer.run()
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ FROM server:latest
 
 COPY ./server/utils /utils
 COPY ./common_utils /common_utils
+COPY ./server/common/dag_node.py /common/dag_node.py
 COPY ./server/main.py /main.py
 COPY ./server/common/rabbit /common/rabbit
-COPY ./server/common/dag_node.py /common/dag_node.py
-COPY ./server/common/loader /common/loader
+COPY ./server/common/consumers/weather_consumer /common/consumers/weather_consumer

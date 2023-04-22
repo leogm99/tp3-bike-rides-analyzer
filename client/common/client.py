@@ -42,8 +42,9 @@ class Client:
         weather_sender.join()
         stations_sender.join()
         logging.debug(f'action: sending_static_data | status: success')
+        self.__send_csv_data(files_paths_by_city_and_type, 'trips')
         from time import sleep
-        sleep(1000)
+        sleep(100)
         self.stop()
 
     def __send_csv_data(self, paths_by_city_and_type: Dict[str, Dict[str, str]], data_type: str):
@@ -52,11 +53,12 @@ class Client:
             with open(data_path, newline='') as source:
                 reader = csv.DictReader(f=source)
                 for row in reader:
+                    row['city'] = city
                     # todo: consider encapsulating this inside a protocol module or similar
-                    message = {'type': data_type, 'city': city, 'payload': row}
+                    message = {'type': data_type, 'payload': row}
                     json_message = json.dumps(message)
                     send_string_message(self.__send_all, json_message, 4)
-        eof_data = {'type': data_type, 'payload': "EOF"}
+        eof_data = {'type': data_type, 'payload': 'EOF'}
         json_eof_data = json.dumps(eof_data)
         send_string_message(self.__send_all, json_eof_data, 4)
 

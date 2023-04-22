@@ -6,7 +6,9 @@ docker-image:
 	docker build -f ./base-images/server.dockerfile -t "server:latest" .
 	docker build -f ./client/Dockerfile -t "client:latest" .
 	docker build -f ./server/common/loader/Dockerfile -t "loader:latest" .
-	docker build -f ./server/common/consumer/Dockerfile -t "trips_consumer:latest" .
+	docker build -f ./server/common/consumers/trips_consumer/Dockerfile -t "trips_consumer:latest" .
+	docker build -f ./server/common/consumers/stations_consumer/Dockerfile -t "stations_consumer:latest" .
+	docker build -f ./server/common/consumers/weather_consumer/Dockerfile -t "weather_consumer:latest" .
 .PHONY: docker-image
 
 docker-compose-up: docker-image
