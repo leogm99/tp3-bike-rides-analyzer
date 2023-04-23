@@ -12,6 +12,7 @@ docker-image:
 	docker build -f ./server/common/filters/precipitation_filter/Dockerfile -t "precipitation_filter:latest" .
 	docker build -f ./server/common/filters/trip_year_filter/Dockerfile -t "trip_year_filter:latest" .
 	docker build -f ./server/common/filters/montreal_trips_filter/Dockerfile -t "montreal_trips_filter:latest" .
+	docker build -f ./server/common/filters/montreal_stations_filter/Dockerfile -t "montreal_stations_filter:latest" .
 .PHONY: docker-image
 
 docker-compose-up: docker-image

@@ -82,6 +82,13 @@ def main():
             queue_name='montreal_trips_filter',
         )
         montreal_trips_filter.run()
+    elif app_entrypoint == 'Montreal_Stations_Filter':
+        from common.filters.montreal_stations_filter.montreal_stations_filter import MontrealStationsFilter
+        montreal_stations_filter = MontrealStationsFilter(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            queue_name='montreal_stations_filter',
+        )
+        montreal_stations_filter.run()
 
 
 if __name__ == '__main__':
