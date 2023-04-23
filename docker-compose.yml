@@ -192,3 +192,21 @@ services:
         source: ./server/config.ini
         target: /config.ini
     restart: on-failure
+
+  trip_year_filter1:
+    container_name: trip_year_filter1
+    image: trip_year_filter:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Trip_Year_Filter
+    links:
+      - rabbit
+    depends_on:
+      - loader
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure

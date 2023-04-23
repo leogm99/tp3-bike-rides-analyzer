@@ -68,6 +68,13 @@ def main():
             queue_name='precipitation_filter',
         )
         precipitation_filter.run()
+    elif app_entrypoint == 'Trip_Year_Filter':
+        from common.filters.trip_year_filter.trip_year_filter import TripYearFilter
+        trip_year_filter = TripYearFilter(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            queue_name='trip_year_filter',
+        )
+        trip_year_filter.run()
 
 
 if __name__ == '__main__':

@@ -10,6 +10,7 @@ docker-image:
 	docker build -f ./server/common/consumers/stations_consumer/Dockerfile -t "stations_consumer:latest" .
 	docker build -f ./server/common/consumers/weather_consumer/Dockerfile -t "weather_consumer:latest" .
 	docker build -f ./server/common/filters/precipitation_filter/Dockerfile -t "precipitation_filter:latest" .
+	docker build -f ./server/common/filters/trip_year_filter/Dockerfile -t "trip_year_filter:latest" .
 .PHONY: docker-image
 
 docker-compose-up: docker-image
