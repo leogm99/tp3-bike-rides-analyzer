@@ -1,13 +1,16 @@
 import json
+import logging
 
 from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 from common.rabbit.rabbit_queue import RabbitQueue
 from common.rabbit.rabbit_exchange import RabbitExchange
 from common.dag_node import DAGNode
-import logging
+from common.utils import select_message_fields, message_from_payload
 
 
 class WeatherConsumer(DAGNode):
+    precipitation_filter_fields = ['date', 'prectot']
+
     def __init__(self,
                  rabbit_hostname: str,
                  data_exchange: str,
@@ -31,21 +34,23 @@ class WeatherConsumer(DAGNode):
         )
 
         self._queue_name = weather_queue_name
-        self._precipitation_filter_fields = ['date', 'prectot']
+
         self._precipitation_filter_routing_key = precipitation_filter_routing_key
 
     def run(self):
-        self._weather_queue.consume(self.__on_message_callback)
+        self._weather_queue.consume(self.on_message_callback)
 
-    def __on_message_callback(self, ch, method, properties, body):
+    def on_message_callback(self, body):
         obj_message = json.loads(body)
-        if obj_message['payload'] != 'EOF':
-            obj_message['payload'] = self.select_dictionary_fields(obj_message['payload'],
-                                                                   self._precipitation_filter_fields)
-            self._precipitation_filter_exchange.publish(json.dumps(obj_message),
-                                                        routing_key=self._precipitation_filter_routing_key)
-        else:
-            self._precipitation_filter_exchange.publish(body, routing_key=self._precipitation_filter_routing_key)
+        payload = obj_message['payload']
+        self.__send_message_to_precipitation_filter(payload)
+
+    @select_message_fields(fields=precipitation_filter_fields)
+    @message_from_payload(message_type='weather')
+    def __send_message_to_precipitation_filter(self, message: str):
+        logging.info(f'message: {message}')
+        self.publish(message, self._precipitation_filter_exchange,
+                     routing_key=self._precipitation_filter_routing_key)
 
     def close(self):
         if not self.closed:

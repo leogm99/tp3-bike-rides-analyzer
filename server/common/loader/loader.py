@@ -9,6 +9,9 @@ from common.dag_node import DAGNode
 
 
 class Loader(DAGNode):
+    def on_message_callback(self, message):
+        raise NotImplementedError
+
     def __init__(self, port: int, backlog: int, rabbit_hostname: str, data_exchange: str, exchange_type: str):
         super().__init__()
         self._closed = False

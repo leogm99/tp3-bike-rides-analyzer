@@ -1,6 +1,6 @@
 import abc
 import signal
-from typing import Any, Dict, List
+from typing import Union
 
 
 class DAGNode(abc.ABC):
@@ -13,8 +13,15 @@ class DAGNode(abc.ABC):
         pass
 
     @staticmethod
-    def select_dictionary_fields(obj: Dict[str, Any], fields: List[str]):
-        return {k: obj[k] for k in fields}
+    def publish(message: Union[str | bytes], exchange, routing_key=''):
+        exchange.publish(
+            message,
+            routing_key=routing_key,
+        )
+
+    @abc.abstractmethod
+    def on_message_callback(self, message):
+        pass
 
     @abc.abstractmethod
     def close(self):

@@ -1,6 +1,6 @@
 FROM server:latest
 
-COPY ./server/utils /utils
+COPY ./server/common/utils.py /common/utils.py
 COPY ./common_utils /common_utils
 COPY ./server/main.py /main.py
 COPY ./server/common/rabbit /common/rabbit

@@ -18,9 +18,11 @@ class RabbitQueue:
                                          routing_key=routing_key)
 
     def consume(self, on_message_callback):
+        def wrap_on_message_callback(ch, method, properties, body):
+            return on_message_callback(body)
         self._rabbit_connection.consume(
             queue_name=self._queue_name,
-            on_message_callback=on_message_callback
+            on_message_callback=wrap_on_message_callback
         )
 
 

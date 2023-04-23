@@ -4,9 +4,14 @@ from common.dag_node import DAGNode
 from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 from common.rabbit.rabbit_queue import RabbitQueue
 from common.rabbit.rabbit_exchange import RabbitExchange
+from common.utils import select_message_fields, message_from_payload
 
 
 class TripsConsumer(DAGNode):
+    montreal_trips_filter_fields = ['start_station_code', 'end_station_code', 'city']
+    trip_year_filter_fields = ['start_station_code', 'city', 'yearid']
+    mean_trip_time_joiner_fields = ['start_date', 'duration_sec']
+
     def __init__(self,
                  rabbit_hostname: str,
                  data_exchange: str,
@@ -44,46 +49,37 @@ class TripsConsumer(DAGNode):
         self._montreal_trips_filter_routing_key = montreal_trips_filter_routing_key
         self._trip_year_filter_routing_key = trip_year_filter_routing_key
 
-        self._montreal_trips_filter_fields = ['start_station_code', 'end_station_code', 'city']
-        self._trip_year_filter_fields = ['start_station_code', 'city', 'yearid']
-        self._mean_trip_time_joiner_fields = ['start_date', 'duration_sec']
-
     def run(self):
         try:
-            self._trips_queue.consume(self.__on_message_callback)
+            self._trips_queue.consume(self.on_message_callback)
         except BaseException as e:
             if self.closed:
                 pass
 
-    def __on_message_callback(self, ch, method, properties, body):
-        try:
-            obj_message = json.loads(body)
-            if obj_message['payload'] == 'EOF':
-                # TODO
-                return
-            montreal_trips_filter_payload = self.select_dictionary_fields(obj_message['payload'],
-                                                                          self._montreal_trips_filter_fields)
-            trip_year_filter_payload = self.select_dictionary_fields(obj_message['payload'],
-                                                                     self._trip_year_filter_fields)
-            mean_trip_time_joiner_payload = self.select_dictionary_fields(obj_message['payload'],
-                                                                          self._mean_trip_time_joiner_fields)
-            obj_message['payload'] = montreal_trips_filter_payload
-            self._montreal_trips_filter_exchange.publish(
-                json.dumps(obj_message),
-                routing_key=self._montreal_trips_filter_routing_key,
-            )
-            obj_message['payload'] = trip_year_filter_payload
-            self._trip_year_filter_exchange.publish(
-                json.dumps(obj_message),
-                routing_key=self._trip_year_filter_routing_key,
-            )
-            obj_message['payload'] = mean_trip_time_joiner_payload
-            self._mean_trip_time_joiner_exchange.publish(
-                json.dumps(obj_message)
-            )
-        except BaseException as e:
-            logging.error(f'action: on-message-callback | status: failed | error: {e}')
-            raise e
+    def on_message_callback(self, body):
+        obj_message = json.loads(body)
+        payload = obj_message['payload']
+        self.__send_message_to_montreal_trips_filter(payload)
+        self.__send_message_to_trip_year_filter(payload)
+        self.__send_message_to_mean_trip_time_joiner(payload)
+
+    @select_message_fields(fields=montreal_trips_filter_fields)
+    @message_from_payload(message_type='trips')
+    def __send_message_to_montreal_trips_filter(self, message: str):
+        logging.info(f'message to montreal trips filter: {message}')
+        self.publish(message, self._montreal_trips_filter_exchange, self._montreal_trips_filter_routing_key)
+
+    @select_message_fields(fields=trip_year_filter_fields)
+    @message_from_payload(message_type='trips')
+    def __send_message_to_trip_year_filter(self, message: str):
+        logging.info(f'message to trip year filter: {message}')
+        self.publish(message, self._trip_year_filter_exchange, self._trip_year_filter_routing_key)
+
+    @select_message_fields(fields=mean_trip_time_joiner_fields)
+    @message_from_payload(message_type='trips')
+    def __send_message_to_mean_trip_time_joiner(self, message: str):
+        logging.info(f'message to mean trip time joiner: {message}')
+        self.publish(message, self._mean_trip_time_joiner_exchange)
 
     def close(self):
         if not self.closed:
