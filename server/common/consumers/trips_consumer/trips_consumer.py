@@ -66,19 +66,16 @@ class TripsConsumer(DAGNode):
     @select_message_fields(fields=montreal_trips_filter_fields)
     @message_from_payload(message_type='trips')
     def __send_message_to_montreal_trips_filter(self, message: str):
-        logging.info(f'message to montreal trips filter: {message}')
         self.publish(message, self._montreal_trips_filter_exchange, self._montreal_trips_filter_routing_key)
 
     @select_message_fields(fields=trip_year_filter_fields)
     @message_from_payload(message_type='trips')
     def __send_message_to_trip_year_filter(self, message: str):
-        logging.info(f'message to trip year filter: {message}')
         self.publish(message, self._trip_year_filter_exchange, self._trip_year_filter_routing_key)
 
     @select_message_fields(fields=mean_trip_time_joiner_fields)
     @message_from_payload(message_type='trips')
     def __send_message_to_mean_trip_time_joiner(self, message: str):
-        logging.info(f'message to mean trip time joiner: {message}')
         self.publish(message, self._mean_trip_time_joiner_exchange)
 
     def close(self):

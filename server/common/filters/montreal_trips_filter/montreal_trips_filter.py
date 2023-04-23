@@ -4,11 +4,10 @@ from common.dag_node import DAGNode
 from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 from common.rabbit.rabbit_queue import RabbitQueue
 
-MIN_YEAR: int = 2016
-MAX_YEAR: int = 2017
+CITY = 'Montreal'
 
 
-class TripYearFilter(DAGNode):
+class MontrealTripsFilter(DAGNode):
     def __init__(self, rabbit_hostname: str, queue_name: str):
         super().__init__()
         self._rabbit_connection = RabbitBlockingConnection(
@@ -26,12 +25,11 @@ class TripYearFilter(DAGNode):
         message_obj = json.loads(message)
         payload = message_obj['payload']
         if not isinstance(payload, str):
-            trip_year = int(payload['yearid'])
-            if MIN_YEAR <= trip_year <= MAX_YEAR:
-                logging.info(f'action: on-message-callback | status: success | message: {payload}')
+            trip_city = payload['city']
+            if trip_city == CITY:
                 # TODO
                 pass
+        pass
 
     def close(self):
-        if not self.closed:
-            self._rabbit_connection.close()
+        pass

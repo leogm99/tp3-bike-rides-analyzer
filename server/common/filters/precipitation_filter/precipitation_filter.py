@@ -28,7 +28,8 @@ class PrecipitationFilter(DAGNode):
         if not isinstance(payload, str):
             precipitation = float(payload['prectot'])
             if precipitation > self.precipitation_threshold:
-                logging.info(f'action: on_message_callback | status: success | message: {payload}')
+                # TODO
+                pass
 
     def close(self):
         if not self.closed:

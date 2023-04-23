@@ -210,3 +210,21 @@ services:
         source: ./server/config.ini
         target: /config.ini
     restart: on-failure
+
+  montreal_trips_filter1:
+    container_name: montreal_trips_filter1
+    image: montreal_trips_filter:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Montreal_Trips_Filter
+    links:
+      - rabbit
+    depends_on:
+      - loader
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure

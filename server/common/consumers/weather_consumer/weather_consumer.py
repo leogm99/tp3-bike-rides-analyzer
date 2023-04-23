@@ -48,7 +48,6 @@ class WeatherConsumer(DAGNode):
     @select_message_fields(fields=precipitation_filter_fields)
     @message_from_payload(message_type='weather')
     def __send_message_to_precipitation_filter(self, message: str):
-        logging.info(f'message: {message}')
         self.publish(message, self._precipitation_filter_exchange,
                      routing_key=self._precipitation_filter_routing_key)
 
