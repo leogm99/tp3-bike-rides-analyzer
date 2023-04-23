@@ -60,7 +60,7 @@ services:
     links:
       - rabbit
     depends_on:
-      - rabbit
+      - loader
     volumes:
       - type: bind
         source: ./server/config.ini
@@ -78,7 +78,7 @@ services:
     links:
       - rabbit
     depends_on:
-      - rabbit
+      - loader
     volumes:
       - type: bind
         source: ./server/config.ini
@@ -96,7 +96,7 @@ services:
     links:
       - rabbit
     depends_on:
-      - rabbit
+      - loader
     volumes:
       - type: bind
         source: ./server/config.ini
@@ -114,7 +114,7 @@ services:
     links:
       - rabbit
     depends_on:
-      - rabbit
+      - loader
     volumes:
       - type: bind
         source: ./server/config.ini
@@ -132,7 +132,7 @@ services:
     links:
       - rabbit
     depends_on:
-      - rabbit
+      - loader
     volumes:
       - type: bind
         source: ./server/config.ini
@@ -150,7 +150,7 @@ services:
     links:
       - rabbit
     depends_on:
-      - rabbit
+      - loader
     volumes:
       - type: bind
         source: ./server/config.ini
@@ -168,7 +168,25 @@ services:
     links:
       - rabbit
     depends_on:
+      - loader
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  precipitation_filter1:
+    container_name: precipitation_filter1
+    image: precipitation_filter:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Precipitation_Filter
+    links:
       - rabbit
+    depends_on:
+      - loader
     volumes:
       - type: bind
         source: ./server/config.ini

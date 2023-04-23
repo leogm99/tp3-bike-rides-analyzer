@@ -61,6 +61,13 @@ def main():
             precipitation_filter_routing_key='precipitation_filter',
         )
         weather_consumer.run()
+    elif app_entrypoint == 'Precipitation_Filter':
+        from common.filters.precipitation_filter.precipitation_filter import PrecipitationFilter
+        precipitation_filter = PrecipitationFilter(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            queue_name='precipitation_filter',
+        )
+        precipitation_filter.run()
 
 
 if __name__ == '__main__':
