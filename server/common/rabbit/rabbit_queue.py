@@ -13,7 +13,7 @@ class RabbitQueue:
         if bind_exchange != '':
             rabbit_connection.exchange_declare(exchange_name=bind_exchange,
                                                exchange_type=bind_exchange_type)
-            rabbit_connection.queue_bind(queue_name=queue_name,
+            rabbit_connection.queue_bind(queue_name=self._queue_name,
                                          exchange_name=bind_exchange,
                                          routing_key=routing_key)
 

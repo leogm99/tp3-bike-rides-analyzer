@@ -13,6 +13,7 @@ docker-image:
 	docker build -f ./server/common/filters/trip_year_filter/Dockerfile -t "trip_year_filter:latest" .
 	docker build -f ./server/common/filters/montreal_trips_filter/Dockerfile -t "montreal_trips_filter:latest" .
 	docker build -f ./server/common/filters/montreal_stations_filter/Dockerfile -t "montreal_stations_filter:latest" .
+	docker build -f ./server/common/joiners/mean_trip_time_joiner/Dockerfile -t "mean_trip_time_joiner:latest" .
 .PHONY: docker-image
 
 docker-compose-up: docker-image

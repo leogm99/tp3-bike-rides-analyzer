@@ -33,8 +33,7 @@ def main():
             data_exchange='data',
             exchange_type='direct',
             trips_queue_name='trips',
-            mean_trip_time_joiner_exchange_name='mean_trip_time_joiner',
-            mean_trip_time_joiner_exchange_type='fanout',
+            mean_trip_time_joiner_key='mean_trip_time_joiner_trips',
             trip_year_filter_routing_key='trip_year_filter',
             montreal_trips_filter_routing_key='montreal_trips_filter',
         )
@@ -66,6 +65,8 @@ def main():
         precipitation_filter = PrecipitationFilter(
             rabbit_hostname=config_params['rabbit_hostname'],
             queue_name='precipitation_filter',
+            mean_trip_time_joiner_exchange='mean_trip_time_joiner_weather',
+            mean_trip_time_joiner_exchange_type='fanout',
         )
         precipitation_filter.run()
     elif app_entrypoint == 'Trip_Year_Filter':
@@ -89,6 +90,12 @@ def main():
             queue_name='montreal_stations_filter',
         )
         montreal_stations_filter.run()
+    elif app_entrypoint == 'Mean_Trip_Time_Joiner':
+        from common.joiners.mean_trip_time_joiner.mean_trip_time_joiner import MeanTripTimeJoiner
+        mean_trip_time_joiner = MeanTripTimeJoiner(
+            rabbit_hostname=config_params['rabbit_hostname'],
+        )
+        mean_trip_time_joiner.run()
 
 
 if __name__ == '__main__':

@@ -17,8 +17,7 @@ class TripsConsumer(DAGNode):
                  data_exchange: str,
                  exchange_type: str,
                  trips_queue_name: str,
-                 mean_trip_time_joiner_exchange_name: str,
-                 mean_trip_time_joiner_exchange_type: str,
+                 mean_trip_time_joiner_key: str,
                  trip_year_filter_routing_key: str,
                  montreal_trips_filter_routing_key: str):
         super().__init__()
@@ -42,16 +41,16 @@ class TripsConsumer(DAGNode):
         )
         self._mean_trip_time_joiner_exchange = RabbitExchange(
             rabbit_connection=self._rabbit_connection,
-            exchange_name=mean_trip_time_joiner_exchange_name,
-            exchange_type=mean_trip_time_joiner_exchange_type,
         )
 
         self._montreal_trips_filter_routing_key = montreal_trips_filter_routing_key
         self._trip_year_filter_routing_key = trip_year_filter_routing_key
+        self._mean_trip_time_joiner_key = mean_trip_time_joiner_key
 
     def run(self):
         try:
             self._trips_queue.consume(self.on_message_callback)
+            self._rabbit_connection.start_consuming()
         except BaseException as e:
             if self.closed:
                 pass
@@ -76,7 +75,7 @@ class TripsConsumer(DAGNode):
     @select_message_fields(fields=mean_trip_time_joiner_fields)
     @message_from_payload(message_type='trips')
     def __send_message_to_mean_trip_time_joiner(self, message: str):
-        self.publish(message, self._mean_trip_time_joiner_exchange)
+        self.publish(message, self._mean_trip_time_joiner_exchange, self._mean_trip_time_joiner_key)
 
     def close(self):
         if not self.closed:

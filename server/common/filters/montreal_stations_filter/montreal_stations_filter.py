@@ -21,6 +21,7 @@ class MontrealStationsFilter(DAGNode):
 
     def run(self):
         self._input_queue.consume(self.on_message_callback)
+        self._rabbit_connection.start_consuming()
 
     def on_message_callback(self, message):
         obj_message = json.loads(message)
@@ -28,7 +29,6 @@ class MontrealStationsFilter(DAGNode):
         if not isinstance(payload, str):
             city = payload['city']
             if city == CITY:
-                logging.info(f'action: on-message-callback | status: success | message: {payload}')
                 # TODO
                 pass
         pass

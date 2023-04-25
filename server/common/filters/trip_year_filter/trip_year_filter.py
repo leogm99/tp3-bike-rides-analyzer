@@ -21,6 +21,7 @@ class TripYearFilter(DAGNode):
 
     def run(self):
         self._input_queue.consume(self.on_message_callback)
+        self._rabbit_connection.start_consuming()
 
     def on_message_callback(self, message):
         message_obj = json.loads(message)

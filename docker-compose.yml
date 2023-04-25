@@ -246,3 +246,94 @@ services:
         source: ./server/config.ini
         target: /config.ini
     restart: on-failure
+
+  mean_trip_time_joiner1:
+    container_name: mean_trip_time_joiner1
+    image: mean_trip_time_joiner:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Mean_Trip_Time_Joiner
+    links:
+      - rabbit
+    depends_on:
+      - loader
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  mean_trip_time_joiner2:
+    container_name: mean_trip_time_joiner2
+    image: mean_trip_time_joiner:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Mean_Trip_Time_Joiner
+    links:
+      - rabbit
+    depends_on:
+      - loader
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  mean_trip_time_joiner3:
+    container_name: mean_trip_time_joiner3
+    image: mean_trip_time_joiner:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Mean_Trip_Time_Joiner
+    links:
+      - rabbit
+    depends_on:
+      - loader
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  mean_trip_time_joiner4:
+    container_name: mean_trip_time_joiner4
+    image: mean_trip_time_joiner:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Mean_Trip_Time_Joiner
+    links:
+      - rabbit
+    depends_on:
+      - loader
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+
+  mean_trip_time_joiner5:
+    container_name: mean_trip_time_joiner5
+    image: mean_trip_time_joiner:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - APP_ENTRYPOINT=Mean_Trip_Time_Joiner
+    links:
+      - rabbit
+    depends_on:
+      - loader
+    volumes:
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+    restart: on-failure
+

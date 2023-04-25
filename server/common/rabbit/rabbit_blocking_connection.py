@@ -52,6 +52,8 @@ class RabbitBlockingConnection:
             on_message_callback=on_message_callback,
             auto_ack=True,
         )
+
+    def start_consuming(self):
         self._channel.start_consuming()
 
     def close(self):

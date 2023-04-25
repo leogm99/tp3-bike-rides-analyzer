@@ -37,6 +37,7 @@ class StationsConsumer(DAGNode):
     def run(self):
         try:
             self._stations_queue.consume(self.on_message_callback)
+            self._rabbit_connection.start_consuming()
         except BaseException as e:
             if self.closed:
                 logging.info('action: shutdown | status: successful')

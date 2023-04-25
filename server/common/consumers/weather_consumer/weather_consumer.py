@@ -39,10 +39,13 @@ class WeatherConsumer(DAGNode):
 
     def run(self):
         self._weather_queue.consume(self.on_message_callback)
+        self._rabbit_connection.start_consuming()
 
     def on_message_callback(self, body):
         obj_message = json.loads(body)
         payload = obj_message['payload']
+        if isinstance(payload, str):
+            self.publish(body, self._precipitation_filter_exchange)
         self.__send_message_to_precipitation_filter(payload)
 
     @select_message_fields(fields=precipitation_filter_fields)
