@@ -5,4 +5,5 @@ COPY ./common_utils /common_utils
 COPY ./server/main.py /main.py
 COPY ./server/common/rabbit /common/rabbit
 COPY ./server/common/dag_node.py /common/dag_node.py
+COPY ./server/common/dag_node_factory.py /common/dag_node_factory.py
 COPY ./server/common/loader /common/loader

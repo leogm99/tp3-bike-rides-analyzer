@@ -22,5 +22,5 @@ def main():
 
 if __name__ == '__main__':
     from time import sleep
-    sleep(20)
+    sleep(25)
     main()

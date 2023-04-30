@@ -5,19 +5,31 @@ docker-image:
 	docker build -f ./base-images/client.dockerfile -t "client:latest" .
 	docker build -f ./base-images/server.dockerfile -t "server:latest" .
 	docker build -f ./client/Dockerfile -t "client:latest" .
+
 	docker build -f ./server/common/loader/Dockerfile -t "loader:latest" .
+
 	docker build -f ./server/common/consumers/trips_consumer/Dockerfile -t "trips_consumer:latest" .
 	docker build -f ./server/common/consumers/stations_consumer/Dockerfile -t "stations_consumer:latest" .
 	docker build -f ./server/common/consumers/weather_consumer/Dockerfile -t "weather_consumer:latest" .
-	docker build -f ./server/common/filters/precipitation_filter/Dockerfile -t "precipitation_filter:latest" .
-	docker build -f ./server/common/filters/trip_year_filter/Dockerfile -t "trip_year_filter:latest" .
-	docker build -f ./server/common/filters/montreal_trips_filter/Dockerfile -t "montreal_trips_filter:latest" .
-	docker build -f ./server/common/filters/montreal_stations_filter/Dockerfile -t "montreal_stations_filter:latest" .
-	docker build -f ./server/common/joiners/mean_trip_time_joiner/Dockerfile -t "mean_trip_time_joiner:latest" .
+
+	docker build -f ./server/common/filters/Dockerfile -t "filter:latest" .
+	docker build -f ./server/common/filters/by_year/Dockerfile -t "filter_by_year:latest" .
+	docker build -f ./server/common/filters/by_distance/Dockerfile -t "filter_by_distance:latest" .
+	docker build -f ./server/common/filters/by_precipitation/Dockerfile -t "filter_by_precipitation:latest" .
+	docker build -f ./server/common/filters/by_city/Dockerfile -t "filter_by_city:latest" .
+
+	docker build -f ./server/common/joiners/Dockerfile -t "joiner:latest" .
+	docker build -f ./server/common/joiners/by_date/Dockerfile -t "joiner_by_date:latest" .
+	docker build -f ./server/common/joiners/by_year_city_station_id/Dockerfile -t "joiner_by_year_city_station_id:latest" .
+
+	docker build -f ./server/common/aggregators/Dockerfile -t "aggregator:latest" .
+	docker build -f ./server/common/aggregators/aggregate_trip_duration/Dockerfile -t "aggregate_trip_duration:latest" .
+	docker build -f ./server/common/aggregators/aggregate_trip_count/Dockerfile -t "aggregate_trip_count:latest" .
+
 .PHONY: docker-image
 
 docker-compose-up: docker-image
-	docker compose -f ./docker-compose.yml up --build -d
+	docker compose --env-file .env -f ./docker-compose.yml up --build -d
 .PHONY: docker-compose-up
 
 docker-compose-down:

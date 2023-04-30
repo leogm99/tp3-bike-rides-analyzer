@@ -1,42 +1,50 @@
 import json
 import logging
 
-from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 from common.rabbit.rabbit_queue import RabbitQueue
 from common.rabbit.rabbit_exchange import RabbitExchange
 from common.dag_node import DAGNode
-from common.utils import select_message_fields, message_from_payload
+from common.utils import select_message_fields_decorator, message_from_payload_decorator
+from typing import Dict, Union
+
+DATA_EXCHANGE = 'data'
+DATA_EXCHANGE_TYPE = 'direct'
+STATIONS_QUEUE_NAME = 'stations'
+JOINER_BY_YEAR_CITY_STATION_ID_EXCHANGE = 'join_by_year_city_station_id_stations'
+JOINER_BY_YEAR_CITY_STATION_ID_EXCHANGE_TYPE = 'fanout'
+FILTER_BY_CITY_ROUTING_KEY = 'filter_by_city'
 
 
 class StationsConsumer(DAGNode):
     montreal_fields = ['code', 'city', 'name', 'latitude', 'longitude']
-    duplicated_stations_fields = ['code', 'city', 'name']
+    joiner_by_year_city_station_id_fields = ['code', 'city', 'yearid', 'name']
 
-    def __init__(self, rabbit_hostname: str, data_exchange: str, exchange_type: str, stations_queue_name: str,
-                 duplicated_stations_departures_exchange_name: str, duplicated_stations_departures_exchange_type: str,
-                 montreal_stations_filter_routing_key: str):
-        super().__init__()
-        self._rabbit_connection = RabbitBlockingConnection(rabbit_hostname=rabbit_hostname)
+    def __init__(self, rabbit_hostname: str,
+                 filter_by_city_consumers: int = 1,
+                 stations_producers: int = 1):
+        super().__init__(rabbit_hostname)
+
         self._stations_queue = RabbitQueue(rabbit_connection=self._rabbit_connection,
-                                           queue_name=stations_queue_name,
-                                           bind_exchange=data_exchange,
-                                           bind_exchange_type=exchange_type,
-                                           routing_key=stations_queue_name)
-        self._duplicated_stations_departures_exchange = RabbitExchange(
+                                           queue_name=STATIONS_QUEUE_NAME,
+                                           bind_exchange=DATA_EXCHANGE,
+                                           bind_exchange_type=DATA_EXCHANGE_TYPE,
+                                           routing_key=STATIONS_QUEUE_NAME,
+                                           producers=stations_producers)
+        self._joiner_by_year_city_station_id_exchange = RabbitExchange(
             rabbit_connection=self._rabbit_connection,
-            exchange_name=duplicated_stations_departures_exchange_name,
-            exchange_type=duplicated_stations_departures_exchange_type,
+            exchange_name=JOINER_BY_YEAR_CITY_STATION_ID_EXCHANGE,
+            exchange_type=JOINER_BY_YEAR_CITY_STATION_ID_EXCHANGE_TYPE,
         )
-
-        self._montreal_stations_filter_exchange = RabbitExchange(
+        self._filter_by_city_exchange = RabbitExchange(
             rabbit_connection=self._rabbit_connection,
         )
-
-        self._montreal_stations_filter_routing_key = montreal_stations_filter_routing_key
+        # Pub/Sub exchange, all consumers will get eof.
+        self._joiner_consumers = 1
+        self._filter_consumers = filter_by_city_consumers
 
     def run(self):
         try:
-            self._stations_queue.consume(self.on_message_callback)
+            self._stations_queue.consume(self.on_message_callback, self.on_producer_finished)
             self._rabbit_connection.start_consuming()
         except BaseException as e:
             if self.closed:
@@ -44,24 +52,29 @@ class StationsConsumer(DAGNode):
             else:
                 raise e
 
-    def on_message_callback(self, body):
-        obj_message = json.loads(body)
-        payload = obj_message['payload']
-        self.__send_message_to_montreal_stations_filter(payload)
-        self.__send_message_to_duplicated_stations_joiner(payload)
+    def on_message_callback(self, message_obj, _delivery_tag):
+        payload = message_obj['payload']
+        if payload == 'EOF':
+            logging.info('eof received')
+            return
+        self.__send_message_to_filter_by_city(payload)
+        self.__send_message_to_joiner_by_year_city_station_id(payload)
 
-    @select_message_fields(fields=montreal_fields)
-    @message_from_payload(message_type='stations')
-    def __send_message_to_montreal_stations_filter(self, message: str):
-        self.publish(message, self._montreal_stations_filter_exchange,
-                     self._montreal_stations_filter_routing_key)
+    def on_producer_finished(self, _message, delivery_tag):
+        for _ in range(self._filter_consumers):
+            self.__send_message_to_filter_by_city('EOF')
+        for _ in range(self._joiner_consumers):
+            self.__send_message_to_joiner_by_year_city_station_id('EOF')
 
-    @select_message_fields(fields=duplicated_stations_fields)
-    @message_from_payload(message_type='stations')
-    def __send_message_to_duplicated_stations_joiner(self, message: str):
-        self.publish(message, self._duplicated_stations_departures_exchange)
+    @select_message_fields_decorator(fields=montreal_fields)
+    @message_from_payload_decorator(message_type='stations')
+    def __send_message_to_filter_by_city(self, message: Union[str, Dict]):
 
-    def close(self):
-        if not self.closed:
-            self.closed = True
-            self._rabbit_connection.close()
+        self.publish(message, self._filter_by_city_exchange,
+                     FILTER_BY_CITY_ROUTING_KEY)
+
+    @select_message_fields_decorator(fields=joiner_by_year_city_station_id_fields)
+    @message_from_payload_decorator(message_type='stations')
+    def __send_message_to_joiner_by_year_city_station_id(self, message: Union[str, Dict]):
+        self.publish(message, self._joiner_by_year_city_station_id_exchange)
+

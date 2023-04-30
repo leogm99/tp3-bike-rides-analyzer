@@ -14,7 +14,6 @@ class RabbitBlockingConnection:
         )
         self._channel = self._conn.channel()
         self._channel.basic_qos(prefetch_count=1)
-        self._consumer_tag = None
 
     def queue_declare(self, queue_name: str) -> str:
         result = self._channel.queue_declare(
@@ -34,7 +33,6 @@ class RabbitBlockingConnection:
         self._channel.exchange_declare(
             exchange=exchange_name,
             exchange_type=exchange_type,
-            durable=True,
         )
 
     def publish(self, message: Union[str, bytes], exchange_name: str, routing_key: str):
@@ -44,20 +42,25 @@ class RabbitBlockingConnection:
             body=message,
             exchange=exchange_name,
             routing_key=routing_key,
+            properties=pika.BasicProperties(delivery_mode=2)
         )
 
-    def consume(self, queue_name: str, on_message_callback):
-        self._consumer_tag = self._channel.basic_consume(
+    def consume(self, queue_name: str, on_message_callback, auto_ack=True):
+        return self._channel.basic_consume(
             queue=queue_name,
             on_message_callback=on_message_callback,
-            auto_ack=True,
+            auto_ack=auto_ack,
         )
 
     def start_consuming(self):
         self._channel.start_consuming()
 
+    def cancel_consumer(self, consumer_tag):
+        self._channel.basic_cancel(consumer_tag)
+
+    def ack(self, delivery_tag):
+        self._channel.basic_ack(delivery_tag=delivery_tag)
+
     def close(self):
-        if self._consumer_tag is not None:
-            logging.info(f'consumer tag {self._consumer_tag}')
-            self._channel.stop_consuming()
+        self._channel.stop_consuming()
         self._conn.close()

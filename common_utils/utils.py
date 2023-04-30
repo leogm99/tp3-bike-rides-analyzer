@@ -5,6 +5,7 @@ from configparser import ConfigParser
 
 
 def initialize_logging(level):
+    logging.getLogger('pika').propagate = False
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
         level=level,
@@ -19,7 +20,7 @@ def parse_config(config_file: str = 'config.ini', **kwargs):
     try:
         # todo: type convert numeric values from strings
         for k, v in kwargs.items():
-            config_params[k] = os.getenv(v, config['DEFAULT'][v])
+            config_params[k] = os.getenv(v, config['DEFAULT'].get(v, ''))
     except KeyError as e:
         raise KeyError(f"Key was not found. Error: {e}. Aborting.")
     except ValueError as e:

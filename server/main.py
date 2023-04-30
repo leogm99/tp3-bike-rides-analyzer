@@ -2,6 +2,7 @@
 
 import logging
 from common_utils.utils import initialize_logging, parse_config
+from common.dag_node_factory import build_node
 
 
 def main():
@@ -10,92 +11,24 @@ def main():
         logging_level='LOGGING_LEVEL',
         backlog='BACKLOG',
         rabbit_hostname='RABBIT_HOSTNAME',
-        app_entrypoint='APP_ENTRYPOINT',
+        node_name='NODE_NAME',
+        weather_consumer_replicas='WEATHER_CONSUMER_REPLICAS',
+        stations_consumer_replicas='STATIONS_CONSUMER_REPLICAS',
+        trips_consumer_replicas='TRIPS_CONSUMER_REPLICAS',
+        filter_by_city_replicas='FILTER_BY_CITY_REPLICAS',
+        filter_by_year_replicas='FILTER_BY_YEAR_REPLICAS',
+        filter_by_precipitation_replicas='FILTER_BY_PRECIPITATION_REPLICAS',
+        filter_by_distance_replicas='FILTER_BY_DISTANCE_REPLICAS',
+        joiner_by_date_replicas='JOINER_BY_DATE_REPLICAS',
+        joiner_by_year_city_station_id_replicas='JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS',
+        aggregate_trip_duration_replicas='AGGREGATE_TRIP_DURATION_REPLICAS',
     )
     initialize_logging(config_params['logging_level'])
     logging.debug(f'action: config | result: success | '
                   f'config_params: {config_params}')
-    app_entrypoint = config_params['app_entrypoint']
-    if app_entrypoint == 'Loader':
-        from common.loader.loader import Loader
-        loader = Loader(
-            port=int(config_params['port']),
-            backlog=int(config_params['backlog']),
-            rabbit_hostname=config_params['rabbit_hostname'],
-            data_exchange='data',
-            exchange_type='direct',
-        )
-        loader.run()
-    elif app_entrypoint == 'Trips_Consumer':
-        from common.consumers.trips_consumer.trips_consumer import TripsConsumer
-        trips_consumer = TripsConsumer(
-            rabbit_hostname=config_params['rabbit_hostname'],
-            data_exchange='data',
-            exchange_type='direct',
-            trips_queue_name='trips',
-            mean_trip_time_joiner_key='mean_trip_time_joiner_trips',
-            trip_year_filter_routing_key='trip_year_filter',
-            montreal_trips_filter_routing_key='montreal_trips_filter',
-        )
-        trips_consumer.run()
-    elif app_entrypoint == 'Stations_Consumer':
-        from common.consumers.stations_consumer.stations_consumer import StationsConsumer
-        stations_consumer = StationsConsumer(
-            rabbit_hostname=config_params['rabbit_hostname'],
-            data_exchange='data',
-            exchange_type='direct',
-            stations_queue_name='stations',
-            duplicated_stations_departures_exchange_name='duplicated_stations_joiner',
-            duplicated_stations_departures_exchange_type='fanout',
-            montreal_stations_filter_routing_key='montreal_stations_filter',
-        )
-        stations_consumer.run()
-    elif app_entrypoint == 'Weather_Consumer':
-        from common.consumers.weather_consumer.weather_consumer import WeatherConsumer
-        weather_consumer = WeatherConsumer(
-            rabbit_hostname=config_params['rabbit_hostname'],
-            data_exchange='data',
-            exchange_type='direct',
-            weather_queue_name='weather',
-            precipitation_filter_routing_key='precipitation_filter',
-        )
-        weather_consumer.run()
-    elif app_entrypoint == 'Precipitation_Filter':
-        from common.filters.precipitation_filter.precipitation_filter import PrecipitationFilter
-        precipitation_filter = PrecipitationFilter(
-            rabbit_hostname=config_params['rabbit_hostname'],
-            queue_name='precipitation_filter',
-            mean_trip_time_joiner_exchange='mean_trip_time_joiner_weather',
-            mean_trip_time_joiner_exchange_type='fanout',
-        )
-        precipitation_filter.run()
-    elif app_entrypoint == 'Trip_Year_Filter':
-        from common.filters.trip_year_filter.trip_year_filter import TripYearFilter
-        trip_year_filter = TripYearFilter(
-            rabbit_hostname=config_params['rabbit_hostname'],
-            queue_name='trip_year_filter',
-        )
-        trip_year_filter.run()
-    elif app_entrypoint == 'Montreal_Trips_Filter':
-        from common.filters.montreal_trips_filter.montreal_trips_filter import MontrealTripsFilter
-        montreal_trips_filter = MontrealTripsFilter(
-            rabbit_hostname=config_params['rabbit_hostname'],
-            queue_name='montreal_trips_filter',
-        )
-        montreal_trips_filter.run()
-    elif app_entrypoint == 'Montreal_Stations_Filter':
-        from common.filters.montreal_stations_filter.montreal_stations_filter import MontrealStationsFilter
-        montreal_stations_filter = MontrealStationsFilter(
-            rabbit_hostname=config_params['rabbit_hostname'],
-            queue_name='montreal_stations_filter',
-        )
-        montreal_stations_filter.run()
-    elif app_entrypoint == 'Mean_Trip_Time_Joiner':
-        from common.joiners.mean_trip_time_joiner.mean_trip_time_joiner import MeanTripTimeJoiner
-        mean_trip_time_joiner = MeanTripTimeJoiner(
-            rabbit_hostname=config_params['rabbit_hostname'],
-        )
-        mean_trip_time_joiner.run()
+    node_name = config_params['node_name']
+    node = build_node(node_name, config_params)
+    node.run()
 
 
 if __name__ == '__main__':
