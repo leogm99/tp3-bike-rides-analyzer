@@ -17,7 +17,7 @@ class RollingAverageAggregator(Aggregator, ABC):
         self._aggregate_keys = aggregate_keys
         self._average_key = average_key
 
-    def aggregate(self, payload):
+    def aggregate(self, payload, **kwargs):
         key = tuple(payload[i] for i in self._aggregate_keys)
         average_value = self._aggregate_table.get(key, AverageTuple(0, 0))
         new_average = ((average_value.current_count * average_value.current_average) + float(

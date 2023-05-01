@@ -21,6 +21,7 @@ def main():
         filter_by_distance_replicas='FILTER_BY_DISTANCE_REPLICAS',
         joiner_by_date_replicas='JOINER_BY_DATE_REPLICAS',
         joiner_by_year_city_station_id_replicas='JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS',
+        joiner_by_year_end_station_id_replicas='JOINER_BY_YEAR_END_STATION_ID_REPLICAS',
         aggregate_trip_duration_replicas='AGGREGATE_TRIP_DURATION_REPLICAS',
     )
     initialize_logging(config_params['logging_level'])

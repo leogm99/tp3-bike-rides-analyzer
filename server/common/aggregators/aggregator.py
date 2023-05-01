@@ -16,6 +16,6 @@ class Aggregator(DAGNode):
         self._aggregate_keys = aggregate_keys
 
     @abc.abstractmethod
-    def aggregate(self, message):
+    def aggregate(self, message, **kwargs):
         pass
     

@@ -9,11 +9,11 @@ DATA_EXCHANGE_TYPE = 'direct'
 QUEUE_NAME = 'trips'
 JOINER_BY_DATE = 'join_by_date'
 FILTER_BY_YEAR_ROUTING_KEY = 'filter_by_year'
-FILTER_BY_CITY_ROUTING_KEY = 'filter_by_city'
+FILTER_BY_CITY_ROUTING_KEY = 'filter_by_city_trips'
 
 
 class TripsConsumer(DAGNode):
-    filter_by_city_fields = ['start_station_code', 'end_station_code', 'city']
+    filter_by_city_fields = ['start_station_code', 'end_station_code', 'yearid', 'city']
     filter_by_year_fields = ['start_station_code', 'city', 'yearid']
     join_by_date = ['start_date', 'duration_sec', 'city']
 
@@ -51,6 +51,7 @@ class TripsConsumer(DAGNode):
         if payload != 'EOF':
             self.__send_message_to_filter_by_year(payload)
             self.__send_message_to_joiner_by_date(payload)
+            self.__send_message_to_filter_by_city(payload)
 
     def on_producer_finished(self, _message, delivery_tag):
         for _ in range(self._filter_by_year_consumers):

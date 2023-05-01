@@ -1,4 +1,3 @@
-import json
 import logging
 
 from common.rabbit.rabbit_queue import RabbitQueue
@@ -12,11 +11,11 @@ DATA_EXCHANGE_TYPE = 'direct'
 STATIONS_QUEUE_NAME = 'stations'
 JOINER_BY_YEAR_CITY_STATION_ID_EXCHANGE = 'join_by_year_city_station_id_stations'
 JOINER_BY_YEAR_CITY_STATION_ID_EXCHANGE_TYPE = 'fanout'
-FILTER_BY_CITY_ROUTING_KEY = 'filter_by_city'
+FILTER_BY_CITY_ROUTING_KEY = 'filter_by_city_stations'
 
 
 class StationsConsumer(DAGNode):
-    montreal_fields = ['code', 'city', 'name', 'latitude', 'longitude']
+    filter_by_city_fields = ['code', 'yearid', 'city', 'name', 'latitude', 'longitude']
     joiner_by_year_city_station_id_fields = ['code', 'city', 'yearid', 'name']
 
     def __init__(self, rabbit_hostname: str,
@@ -66,10 +65,9 @@ class StationsConsumer(DAGNode):
         for _ in range(self._joiner_consumers):
             self.__send_message_to_joiner_by_year_city_station_id('EOF')
 
-    @select_message_fields_decorator(fields=montreal_fields)
+    @select_message_fields_decorator(fields=filter_by_city_fields)
     @message_from_payload_decorator(message_type='stations')
     def __send_message_to_filter_by_city(self, message: Union[str, Dict]):
-
         self.publish(message, self._filter_by_city_exchange,
                      FILTER_BY_CITY_ROUTING_KEY)
 

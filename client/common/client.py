@@ -9,7 +9,7 @@ from typing import Dict
 from common_utils.utils import send_string_message, receive_string_message, recv_n_bytes
 from time import sleep
 
-BATCH_SIZE = 10000
+BATCH_SIZE = 200
 
 
 class Client:
@@ -36,8 +36,10 @@ class Client:
         logging.info('action: register_sigterm | status: success')
         files_paths_by_city_and_type = get_file_paths_by_city_and_type(self._data_path)
 
-        weather_sender = Process(target=self.__send_csv_data, args=(files_paths_by_city_and_type, 'weather',))
-        stations_sender = Process(target=self.__send_csv_data, args=(files_paths_by_city_and_type, 'stations',))
+        weather_sender = Process(target=self.__send_csv_data,
+                                 args=(files_paths_by_city_and_type, 'weather', self.__send_all_process_safe))
+        stations_sender = Process(target=self.__send_csv_data,
+                                  args=(files_paths_by_city_and_type, 'stations', self.__send_all_process_safe))
 
         logging.debug(f'action: sending_static_data | status: in progress')
         weather_sender.start()
@@ -47,15 +49,19 @@ class Client:
         logging.debug(f'action: sending_static_data | status: success')
         message = receive_string_message(recv_n_bytes, self._socket, 4)
         logging.info(f'action: receive-message | message: {message}')
-        self.__send_csv_data(files_paths_by_city_and_type, 'trips')
+        # reuse the same functions but avoid having to lock with just one process...
+        self.__send_csv_data(files_paths_by_city_and_type, 'trips', lambda payload: self._socket.sendall(payload))
         sleep(100)
         self.stop()
 
-    def __send_csv_data(self, paths_by_city_and_type: Dict[str, Dict[str, str]], data_type: str):
+    def __send_csv_data(self,
+                        paths_by_city_and_type: Dict[str, Dict[str, str]],
+                        data_type: str,
+                        send_callback):
         send_buffer = [None] * BATCH_SIZE
         current_packet = 0
         for city, city_paths in paths_by_city_and_type.items():
-            if city != 'washington':
+            if city != 'montreal':
                 continue
             data_path = city_paths[data_type]
             with open(data_path, newline='') as source:
@@ -69,19 +75,17 @@ class Client:
                         json_message = json.dumps(message)
                         # throttle
                         sleep(0.001)
-                        send_string_message(self.__send_all, json_message, 4)
+                        send_string_message(send_callback, json_message, 4)
                         current_packet = 0
                 if current_packet != 0:
                     message = {'type': data_type, 'payload': send_buffer[:current_packet]}
                     json_message = json.dumps(message)
-                    # throttle
-                    # sleep(0.0001)
-                    send_string_message(self.__send_all, json_message, 4)
+                    send_string_message(send_callback, json_message, 4)
         eof_data = {'type': data_type, 'payload': 'EOF'}
         json_eof_data = json.dumps(eof_data)
-        send_string_message(self.__send_all, json_eof_data, 4)
+        send_string_message(send_callback, json_eof_data, 4)
 
-    def __send_all(self, payload):
+    def __send_all_process_safe(self, payload):
         """Process safe send_all"""
         with self._rwlock:
             self._socket.sendall(payload)

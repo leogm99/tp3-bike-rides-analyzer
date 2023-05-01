@@ -1,23 +1,30 @@
-from common.filters.string_equality.string_equality import StringEquality
+import logging
 
+from common.filters.string_equality.string_equality import StringEquality
 from common.rabbit.rabbit_queue import RabbitQueue
 from common.rabbit.rabbit_exchange import RabbitExchange
-
+from common.utils import select_message_fields_decorator, message_from_payload_decorator
 
 STATIONS_QUEUE_NAME = 'filter_by_city_stations'
 TRIPS_QUEUE_NAME = 'filter_by_city_trips'
-OUTPUT_EXCHANGE = 'filter_by_city'
-OUTPUT_EXCHANGE_TYPE = 'direct'
+OUTPUT_EXCHANGE_TRIPS = 'filter_by_city_trips_output'
+OUTPUT_EXCHANGE_TRIPS_TYPE = 'direct'
+OUTPUT_EXCHANGE_STATIONS = 'filter_by_city_stations_output'
+OUTPUT_EXCHANGE_STATIONS_TYPE = 'fanout'
 
 
 class FilterByCity(StringEquality):
+    stations_output_fields = ['code', 'yearid', 'name', 'latitude', 'longitude']
+    trips_output_fields = ['start_station_code', 'end_station_code', 'yearid']
+
     def __init__(self,
                  filter_key: str,
                  filter_value: str,
                  rabbit_hostname: str,
                  keep_filter_key: bool = False,
                  trips_producers: int = 1,
-                 stations_producers: int = 1):
+                 stations_producers: int = 1,
+                 trips_consumers: int = 1):
         super().__init__(filter_key, filter_value, rabbit_hostname, keep_filter_key)
         self._stations_input_queue = RabbitQueue(
             self._rabbit_connection,
@@ -31,11 +38,20 @@ class FilterByCity(StringEquality):
             producers=trips_producers,
         )
 
-        self._output_exchange = RabbitExchange(
+        self._output_exchange_trips = RabbitExchange(
             self._rabbit_connection,
-            exchange_name=OUTPUT_EXCHANGE,
-            exchange_type=OUTPUT_EXCHANGE_TYPE,
+            exchange_name=OUTPUT_EXCHANGE_TRIPS,
+            exchange_type=OUTPUT_EXCHANGE_TRIPS_TYPE,
         )
+
+        self._output_exchange_stations = RabbitExchange(
+            self._rabbit_connection,
+            exchange_name=OUTPUT_EXCHANGE_STATIONS,
+            exchange_type=OUTPUT_EXCHANGE_STATIONS_TYPE,
+        )
+        # Pub/Sub exchange, everyone will get the EOF
+        self._stations_consumers = 1
+        self._trips_consumers = trips_consumers
 
     def run(self):
         self._stations_input_queue.consume(self.on_message_callback, self.on_producer_finished)
@@ -43,8 +59,28 @@ class FilterByCity(StringEquality):
         self._rabbit_connection.start_consuming()
 
     def on_message_callback(self, message, _delivery_tag):
-        to_send, message_obj = super(FilterByCity, self).on_message_callback(message, _delivery_tag)
+        if isinstance(message['payload'], list):
+            to_send, message_obj = super(FilterByCity, self).on_message_callback(message, _delivery_tag)
+            if to_send:
+                if message['type'] == 'stations':
+                    self.__send_stations_message(message_obj['payload'])
+                elif message['type'] == 'trips':
+                    self.__send_trips_message(message_obj['payload'])
+
+    @select_message_fields_decorator(fields=stations_output_fields)
+    @message_from_payload_decorator(message_type='stations')
+    def __send_stations_message(self, message):
+        self.publish(message=message, exchange=self._output_exchange_stations)
+
+    @select_message_fields_decorator(fields=trips_output_fields)
+    @message_from_payload_decorator(message_type='trips')
+    def __send_trips_message(self, message):
+        self.publish(message=message, exchange=self._output_exchange_trips)
 
     def on_producer_finished(self, message, delivery_tag):
-        # TODO
-        pass
+        if message['type'] == 'stations':
+            for _ in range(self._stations_consumers):
+                self.__send_stations_message('EOF')
+        elif message['type'] == 'trips':
+            for _ in range(self._trips_consumers):
+                self.__send_trips_message('EOF')

@@ -10,7 +10,7 @@ class CountAggregator(Aggregator, ABC):
         self._aggregate_table = defaultdict(Counter)
         self._aggregate_keys = aggregate_keys
 
-    def aggregate(self, payload):
+    def aggregate(self, payload, **kwargs):
         key = tuple(payload[i] for i in self._aggregate_keys)
-        self._aggregate_table[key].update(count=1)
+        self._aggregate_table[key].update(**kwargs)
 

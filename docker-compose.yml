@@ -53,6 +53,7 @@ services:
       - TRIPS_CONSUMER_REPLICAS=${TRIPS_CONSUMER_REPLICAS:-1}
       - JOINER_BY_DATE_REPLICAS=${JOINER_BY_DATE_REPLICAS:-1}
       - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=${JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS:-1}
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=${JOINER_BY_YEAR_END_STATION_ID_REPLICAS:-1}
       - PORT=8888
     ports:
       - "8888:8888"
@@ -158,6 +159,18 @@ services:
     depends_on:
       - rabbit
 
+  filter_by_count:
+    <<: *node
+    image: filter_by_count:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=FILTER_BY_COUNT
+    deploy:
+      mode: replicated
+      replicas: ${FILTER_BY_COUNT_REPLICAS:-1}
+    depends_on:
+      - rabbit
+
   joiner_by_date:
     <<: *node
     image: joiner_by_date:latest
@@ -186,6 +199,19 @@ services:
     depends_on:
       - rabbit
 
+  joiner_by_year_end_station_id:
+    <<: *node
+    image: joiner_by_year_end_station_id:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=JOINER_BY_YEAR_END_STATION_ID
+      - FILTER_BY_CITY_REPLICAS=${FILTER_BY_CITY_REPLICAS:-1}
+    deploy:
+      mode: replicated
+      replicas: ${JOINER_BY_YEAR_END_STATION_ID_REPLICAS:-1}
+    depends_on:
+      - rabbit
+
   aggregate_trip_duration_0:
     <<: *node
     image: aggregate_trip_duration:latest
@@ -203,5 +229,28 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_COUNT
       - ID=0
+    depends_on:
+      - rabbit
+
+  aggregate_trip_distance_0:
+    <<: *node
+    image: aggregate_trip_distance:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_DISTANCE
+      - ID=0
+    depends_on:
+      - rabbit
+
+  haversine_applier:
+    <<: *node
+    image: haversine_applier:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=HAVERSINE_APPLIER
+      - HAVERSINE_APPLIER_REPLICAS=${HAVERSINE_APPLIER_REPLICAS:-1}
+    deploy:
+      mode: replicated
+      replicas: ${HAVERSINE_APPLIER_REPLICAS:-1}
     depends_on:
       - rabbit

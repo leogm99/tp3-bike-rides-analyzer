@@ -1,22 +1,21 @@
-from common.aggregators.rolling_average_aggregator.rolling_average_aggregator import RollingAverageAggregator
 from typing import Tuple
 
-# para el rolling average, tengo que tener la cantidad total y un counter
+from common.aggregators.rolling_average_aggregator.rolling_average_aggregator import RollingAverageAggregator
 from common.rabbit.rabbit_queue import RabbitQueue
 
-ROUTING_KEY_PREFIX = 'aggregate_trip_duration'
+QUEUE_NAME = 'aggregate_trip_distance'
+LOG_FREQ = 100
 
 
-class AggregateTripDuration(RollingAverageAggregator):
-    def __init__(self, rabbit_hostname: str,
+class AggregateTripDistance(RollingAverageAggregator):
+    def __init__(self,
+                 rabbit_hostname: str,
                  aggregate_keys: Tuple[str, ...],
-                 average_key: str,
-                 aggregate_id: int = 0):
+                 average_key: str):
         super().__init__(rabbit_hostname, aggregate_keys, average_key)
-        self._routing_key = ROUTING_KEY_PREFIX + f'_{aggregate_id}'
         self._input_queue = RabbitQueue(
             self._rabbit_connection,
-            queue_name=self._routing_key,
+            queue_name=QUEUE_NAME,
         )
 
     def run(self):
@@ -27,8 +26,7 @@ class AggregateTripDuration(RollingAverageAggregator):
         payload = message['payload']
         if isinstance(payload, list):
             for obj in payload:
-                obj['duration_sec'] = max(float(obj['duration_sec']), 0.)
-                super(AggregateTripDuration, self).aggregate(payload=obj)
+                self.aggregate(payload=obj)
 
     def on_producer_finished(self, message, delivery_tag):
         pass

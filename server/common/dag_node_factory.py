@@ -14,7 +14,8 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             weather_consumer_replica_count=int(config_params['weather_consumer_replicas']),
             trips_consumer_replica_count=int(config_params['trips_consumer_replicas']),
             ack_count=int(config_params['joiner_by_date_replicas']) + int(
-                config_params['joiner_by_year_city_station_id_replicas'])
+                config_params['joiner_by_year_city_station_id_replicas']) + int(
+                config_params['joiner_by_year_end_station_id_replicas'])
         )
     elif node_name == 'TRIPS_CONSUMER':
         from common.consumers.trips_consumer.trips_consumer import TripsConsumer
@@ -70,11 +71,21 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         from common.filters.by_distance.filter_by_distance import FilterByDistance
         return FilterByDistance(
             rabbit_hostname=config_params['rabbit_hostname'],
-            filter_key='?',
+            filter_key='distance',
             low=6,
             high=float('inf'),
             keep_filter_key=True,
         )
+    elif node_name == 'FILTER_BY_COUNT':
+        from common.filters.by_count.filter_by_count import FilterByCount
+        return FilterByCount(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            filter_key='year_2016',
+            low=float('-inf'),
+            high=float('inf'),
+            keep_filter_key=True,
+        )
+
     elif node_name == 'JOINER_BY_DATE':
         from common.joiners.by_date.join_by_date import JoinByDate
         return JoinByDate(
@@ -91,6 +102,15 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             index_key=('code', 'city', 'yearid'),
             stations_producers=int(config_params['stations_consumer_replicas'])
         )
+    elif node_name == 'JOINER_BY_YEAR_END_STATION_ID':
+        from common.joiners.by_year_end_station_id.join_by_year_end_station_id import JoinByYearEndStationId
+        return JoinByYearEndStationId(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            index_key=('code', 'yearid'),
+            stations_producers=int(config_params['filter_by_city_replicas']),
+            trips_producers=int(config_params['filter_by_city_replicas']),
+        )
+
     elif node_name == 'AGGREGATE_TRIP_DURATION':
         from common.aggregators.aggregate_trip_duration.aggregate_trip_duration import AggregateTripDuration
         return AggregateTripDuration(
@@ -103,6 +123,23 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         from common.aggregators.aggregate_trip_count.aggregate_trip_count import AggregateTripCount
         return AggregateTripCount(
             rabbit_hostname=config_params['rabbit_hostname'],
-            aggregate_keys=('name', 'yearid'),
+            aggregate_keys=('name',),
+        )
+    elif node_name == 'AGGREGATE_TRIP_DISTANCE':
+        from common.aggregators.aggregate_trip_distance.aggregate_trip_distance import AggregateTripDistance
+        return AggregateTripDistance(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            aggregate_keys=('end_station_name',),
+            average_key='distance',
+        )
+
+    elif node_name == 'HAVERSINE_APPLIER':
+        from common.appliers.haversine_applier.haversine_applier import HaversineApplier
+        return HaversineApplier(
+            rabbit_hostname=config_params['rabbit_hostname'],
+            start_latitude_key='start_station_latitude',
+            start_longitude_key='start_station_longitude',
+            end_latitude_key='end_station_latitude',
+            end_longitude_key='end_station_longitude',
         )
     raise ValueError("Unknown node name")
