@@ -47,6 +47,7 @@ class WeatherConsumer(DAGNode):
         logging.info(f'sending eof {self._weather_consumers} times')
         for _ in range(self._weather_consumers):
             self.__send_message_to_filter_by_precipitation('EOF')
+        self.close()
 
     @select_message_fields_decorator(fields=filter_by_precipitation_fields)
     @message_from_payload_decorator(message_type='weather')

@@ -1,4 +1,5 @@
 import json
+import logging
 
 from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 
@@ -23,14 +24,17 @@ class RabbitQueue:
                                          exchange_name=bind_exchange,
                                          routing_key=routing_key)
 
-    def consume(self, on_message_callback, on_producer_finished, auto_ack=True):
+    def consume(self, on_message_callback, on_producer_finished, auto_ack=False):
         def wrap_on_message_callback(ch, method, properties, body):
             message_obj = json.loads(body)
             delivery_tag = method.delivery_tag
+            self.ack(delivery_tag)
             if message_obj['payload'] == 'EOF':
                 self._count_eof += 1
                 if self._count_eof == self._producers:
                     return on_producer_finished(message_obj, delivery_tag)
+                if self._count_eof > self._producers:
+                    logging.info('received more eofs!')
             return on_message_callback(message_obj, delivery_tag)
         self._consumer_tag = self._rabbit_connection.consume(
             queue_name=self._queue_name,

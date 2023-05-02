@@ -21,7 +21,8 @@ class TripsConsumer(DAGNode):
                  rabbit_hostname: str,
                  trips_producers: int = 1,
                  filter_by_city_consumers: int = 1,
-                 filter_by_year_consumers: int = 1):
+                 filter_by_year_consumers: int = 1,
+                 joiner_by_date_consumers: int = 1):
         super().__init__(rabbit_hostname)
 
         self._trips_queue = RabbitQueue(
@@ -38,6 +39,7 @@ class TripsConsumer(DAGNode):
         )
         self._filter_by_city_consumers = filter_by_city_consumers
         self._filter_by_year_consumers = filter_by_year_consumers
+        self._joiner_by_date_consumers = joiner_by_date_consumers
 
     def run(self):
         try:
@@ -58,6 +60,9 @@ class TripsConsumer(DAGNode):
             self.__send_message_to_filter_by_year('EOF')
         for _ in range(self._filter_by_city_consumers):
             self.__send_message_to_filter_by_city('EOF')
+        for _ in range(self._joiner_by_date_consumers):
+            self.__send_message_to_joiner_by_date('EOF')
+        self.close()
 
     @select_message_fields_decorator(fields=filter_by_city_fields)
     @message_from_payload_decorator(message_type='trips')

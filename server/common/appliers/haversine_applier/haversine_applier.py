@@ -9,7 +9,7 @@ from common.rabbit.rabbit_queue import RabbitQueue
 from common.utils import select_message_fields_decorator
 
 QUEUE_NAME = 'haversine_applier'
-OUTPUT_ROUTING_KEY = 'aggregate_trip_distance'
+OUTPUT_ROUTING_KEY_PREFIX = lambda n: f'aggregate_trip_distance_{n}'
 
 
 class HaversineApplier(Applier):
@@ -20,7 +20,9 @@ class HaversineApplier(Applier):
                  start_latitude_key: str,
                  start_longitude_key: str,
                  end_latitude_key: str,
-                 end_longitude_key: str):
+                 end_longitude_key: str,
+                 producers: int = 1,
+                 consumers: int = 1):
         super().__init__(rabbit_hostname)
         self._start_latitude_key = start_latitude_key
         self._start_longitude_key = start_longitude_key
@@ -30,11 +32,13 @@ class HaversineApplier(Applier):
         self._input_queue = RabbitQueue(
             self._rabbit_connection,
             queue_name=QUEUE_NAME,
+            producers=producers
         )
 
         self._output_exchange = RabbitExchange(
             self._rabbit_connection,
         )
+        self._consumers = consumers
 
     def run(self):
         self._input_queue.consume(self.on_message_callback, self.on_producer_finished)
@@ -49,11 +53,17 @@ class HaversineApplier(Applier):
             self.__send_message(payload)
 
     def on_producer_finished(self, message, delivery_tag):
-        pass
+        for i in range(self._consumers):
+            self.publish(json.dumps({'payload': 'EOF'}), self._output_exchange,
+                         routing_key=OUTPUT_ROUTING_KEY_PREFIX(i))
+        self.close()
 
     @select_message_fields_decorator(fields=output_fields)
     def __send_message(self, message):
-        self.publish(json.dumps({'payload': message}), self._output_exchange, routing_key=OUTPUT_ROUTING_KEY)
+        hashes = self.hash_message(message, hashing_key='end_station_name', hash_modulo=self._consumers)
+        for routing_key, buffer in hashes.items():
+            self.publish(json.dumps({'payload': message}), self._output_exchange,
+                         routing_key=OUTPUT_ROUTING_KEY_PREFIX(routing_key))
 
     def apply(self, message):
         start = float(message[self._start_latitude_key]), float(message[self._start_longitude_key])

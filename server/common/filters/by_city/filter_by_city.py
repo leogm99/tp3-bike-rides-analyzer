@@ -7,8 +7,7 @@ from common.utils import select_message_fields_decorator, message_from_payload_d
 
 STATIONS_QUEUE_NAME = 'filter_by_city_stations'
 TRIPS_QUEUE_NAME = 'filter_by_city_trips'
-OUTPUT_EXCHANGE_TRIPS = 'filter_by_city_trips_output'
-OUTPUT_EXCHANGE_TRIPS_TYPE = 'direct'
+JOINER_BY_YEAR_ROUTING_KEY = 'joiner_by_year_end_station_id'
 OUTPUT_EXCHANGE_STATIONS = 'filter_by_city_stations_output'
 OUTPUT_EXCHANGE_STATIONS_TYPE = 'fanout'
 
@@ -40,8 +39,6 @@ class FilterByCity(StringEquality):
 
         self._output_exchange_trips = RabbitExchange(
             self._rabbit_connection,
-            exchange_name=OUTPUT_EXCHANGE_TRIPS,
-            exchange_type=OUTPUT_EXCHANGE_TRIPS_TYPE,
         )
 
         self._output_exchange_stations = RabbitExchange(
@@ -59,13 +56,14 @@ class FilterByCity(StringEquality):
         self._rabbit_connection.start_consuming()
 
     def on_message_callback(self, message, _delivery_tag):
-        if isinstance(message['payload'], list):
-            to_send, message_obj = super(FilterByCity, self).on_message_callback(message, _delivery_tag)
-            if to_send:
-                if message['type'] == 'stations':
-                    self.__send_stations_message(message_obj['payload'])
-                elif message['type'] == 'trips':
-                    self.__send_trips_message(message_obj['payload'])
+        if message['payload'] == 'EOF':
+            return
+        to_send, message_obj = super(FilterByCity, self).on_message_callback(message, _delivery_tag)
+        if to_send:
+            if message['type'] == 'stations':
+                self.__send_stations_message(message_obj['payload'])
+            elif message['type'] == 'trips':
+                self.__send_trips_message(message_obj['payload'])
 
     @select_message_fields_decorator(fields=stations_output_fields)
     @message_from_payload_decorator(message_type='stations')
@@ -75,12 +73,14 @@ class FilterByCity(StringEquality):
     @select_message_fields_decorator(fields=trips_output_fields)
     @message_from_payload_decorator(message_type='trips')
     def __send_trips_message(self, message):
-        self.publish(message=message, exchange=self._output_exchange_trips)
+        self.publish(message=message, exchange=self._output_exchange_trips, routing_key=JOINER_BY_YEAR_ROUTING_KEY)
 
     def on_producer_finished(self, message, delivery_tag):
         if message['type'] == 'stations':
-            for _ in range(self._stations_consumers):
-                self.__send_stations_message('EOF')
+            logging.info('sending eof to station consumer')
+            self.__send_stations_message('EOF')
+            self._stations_input_queue.cancel()
         elif message['type'] == 'trips':
             for _ in range(self._trips_consumers):
                 self.__send_trips_message('EOF')
+            self.close()

@@ -9,7 +9,7 @@ from typing import Dict
 from common_utils.utils import send_string_message, receive_string_message, recv_n_bytes
 from time import sleep
 
-BATCH_SIZE = 200
+BATCH_SIZE = 1000
 
 
 class Client:
@@ -61,8 +61,6 @@ class Client:
         send_buffer = [None] * BATCH_SIZE
         current_packet = 0
         for city, city_paths in paths_by_city_and_type.items():
-            if city != 'montreal':
-                continue
             data_path = city_paths[data_type]
             with open(data_path, newline='') as source:
                 reader = csv.DictReader(f=source)

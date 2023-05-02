@@ -39,6 +39,7 @@ class Loader(DAGNode):
             )
             self._weather_eof = False
             self._stations_eof = False
+            self._trips_eof = False
 
         except socket.error as se:
             logging.error(f'action: socket-create | status: failed | reason: {se}')
@@ -61,7 +62,7 @@ class Loader(DAGNode):
         self._static_ack_waiter.join()
         ack = json.dumps({'type': 'ack'})
         send_string_message(client_socket.sendall, ack, 4)
-        while True:
+        while not self._trips_eof:
             self.__receive_client_message_and_publish(client_socket)
         # Send to client
 
@@ -80,6 +81,7 @@ class Loader(DAGNode):
             self._weather_eof = True
         elif eof_type == 'trips':
             replica_count = self._trips_consumer_replica_count
+            self._trips_eof = True
         else:
             raise ValueError("Invalid type of data received")
         eof = {'type': eof_type, 'payload': 'EOF'}

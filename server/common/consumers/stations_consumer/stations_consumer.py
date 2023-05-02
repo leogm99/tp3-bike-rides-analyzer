@@ -62,8 +62,8 @@ class StationsConsumer(DAGNode):
     def on_producer_finished(self, _message, delivery_tag):
         for _ in range(self._filter_consumers):
             self.__send_message_to_filter_by_city('EOF')
-        for _ in range(self._joiner_consumers):
-            self.__send_message_to_joiner_by_year_city_station_id('EOF')
+        self.__send_message_to_joiner_by_year_city_station_id('EOF')
+        self.close()
 
     @select_message_fields_decorator(fields=filter_by_city_fields)
     @message_from_payload_decorator(message_type='stations')

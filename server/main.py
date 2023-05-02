@@ -19,10 +19,14 @@ def main():
         filter_by_year_replicas='FILTER_BY_YEAR_REPLICAS',
         filter_by_precipitation_replicas='FILTER_BY_PRECIPITATION_REPLICAS',
         filter_by_distance_replicas='FILTER_BY_DISTANCE_REPLICAS',
+        filter_by_count_replicas='FILTER_BY_COUNT_REPLICAS',
         joiner_by_date_replicas='JOINER_BY_DATE_REPLICAS',
         joiner_by_year_city_station_id_replicas='JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS',
         joiner_by_year_end_station_id_replicas='JOINER_BY_YEAR_END_STATION_ID_REPLICAS',
         aggregate_trip_duration_replicas='AGGREGATE_TRIP_DURATION_REPLICAS',
+        aggregate_trip_count_replicas='AGGREGATE_TRIP_COUNT_REPLICAS',
+        aggregate_trip_distance_replicas='AGGREGATE_TRIP_DISTANCE_REPLICAS',
+        haversine_applier_replicas='HAVERSINE_APPLIER_REPLICAS'
     )
     initialize_logging(config_params['logging_level'])
     logging.debug(f'action: config | result: success | '

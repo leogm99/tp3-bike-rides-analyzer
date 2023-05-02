@@ -11,6 +11,7 @@ docker-image:
 	docker build -f ./server/common/consumers/trips_consumer/Dockerfile -t "trips_consumer:latest" .
 	docker build -f ./server/common/consumers/stations_consumer/Dockerfile -t "stations_consumer:latest" .
 	docker build -f ./server/common/consumers/weather_consumer/Dockerfile -t "weather_consumer:latest" .
+	docker build -f ./server/common/consumers/metrics_consumer/Dockerfile -t "metrics_consumer:latest" .
 
 	docker build -f ./server/common/filters/Dockerfile -t "filter:latest" .
 	docker build -f ./server/common/filters/by_year/Dockerfile -t "filter_by_year:latest" .
@@ -34,7 +35,7 @@ docker-image:
 .PHONY: docker-image
 
 docker-compose-up: docker-image
-	docker compose --env-file .env -f ./docker-compose.yml up --build -d
+	docker compose -f ./docker-compose.yml up --build -d
 .PHONY: docker-compose-up
 
 docker-compose-down:
