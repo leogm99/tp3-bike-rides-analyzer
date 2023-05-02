@@ -78,6 +78,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             low=6,
             high=float('inf'),
             keep_filter_key=True,
+            producers=int(config_params['aggregate_trip_distance_replicas'])
         )
     elif node_name == 'FILTER_BY_COUNT':
         from common.filters.by_count.filter_by_count import FilterByCount

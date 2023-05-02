@@ -38,6 +38,9 @@ services:
         source: ./client/data
         target: /data
       - type: bind
+        source: ./client/output
+        target: /output
+      - type: bind
         source: ./client/config.ini
         target: /config.ini
     depends_on:

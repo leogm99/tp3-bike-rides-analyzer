@@ -29,7 +29,7 @@ class RabbitQueue:
             message_obj = json.loads(body)
             delivery_tag = method.delivery_tag
             self.ack(delivery_tag)
-            if message_obj['payload'] == 'EOF':
+            if 'payload' in message_obj and message_obj['payload'] == 'EOF':
                 self._count_eof += 1
                 if self._count_eof == self._producers:
                     return on_producer_finished(message_obj, delivery_tag)

@@ -62,7 +62,7 @@ class HaversineApplier(Applier):
     def __send_message(self, message):
         hashes = self.hash_message(message, hashing_key='end_station_name', hash_modulo=self._consumers)
         for routing_key, buffer in hashes.items():
-            self.publish(json.dumps({'payload': message}), self._output_exchange,
+            self.publish(json.dumps({'payload': buffer}), self._output_exchange,
                          routing_key=OUTPUT_ROUTING_KEY_PREFIX(routing_key))
 
     def apply(self, message):

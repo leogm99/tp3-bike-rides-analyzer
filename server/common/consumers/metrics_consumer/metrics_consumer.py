@@ -1,3 +1,4 @@
+import json
 import logging
 
 from common.dag_node import DAGNode
@@ -6,7 +7,7 @@ from common.rabbit.rabbit_queue import RabbitQueue
 from collections import defaultdict
 
 QUEUE_NAME = 'metrics_consumer'
-LOADER_ROUTING_KEY = 'loader_metrics_receiver'
+LOADER_ROUTING_KEY = 'metrics_waiter'
 
 
 class MetricsConsumer(DAGNode):
@@ -30,10 +31,14 @@ class MetricsConsumer(DAGNode):
         self._rabbit_connection.start_consuming()
 
     def on_message_callback(self, message, delivery_tag):
+        logging.info(message)
         if message['payload'] == 'EOF':
             return
         self._metrics[message['type']].append(message['payload'])
 
     def on_producer_finished(self, message, delivery_tag):
+        self.publish(json.dumps(self._metrics), self._output_exchange, routing_key=LOADER_ROUTING_KEY)
         logging.info(self._metrics)
+        logging.info('action: publish-to-loader | status: success')
+        self.close()
 

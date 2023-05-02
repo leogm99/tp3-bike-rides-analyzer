@@ -13,7 +13,7 @@ class RabbitBlockingConnection:
             )
         )
         self._channel = self._conn.channel()
-        self._channel.basic_qos(prefetch_count=10)
+        self._channel.basic_qos(prefetch_count=50)
 
     def queue_declare(self, queue_name: str) -> str:
         result = self._channel.queue_declare(

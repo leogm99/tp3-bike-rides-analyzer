@@ -9,6 +9,7 @@ def main():
     config_params = parse_config(server_addr='SERVER_ADDR',
                                  server_port='SERVER_PORT',
                                  data_path='DATA_PATH',
+                                 output_path='OUTPUT_PATH',
                                  logging_level='LOGGING_LEVEL')
     initialize_logging(config_params['logging_level'])
     logging.debug(f'action: config | result: success | data_path: {config_params["data_path"]}')
@@ -16,6 +17,7 @@ def main():
         server_addr=config_params['server_addr'],
         server_port=int(config_params['server_port']),
         data_path=config_params['data_path'],
+        output_path=config_params['output_path'],
     )
     client.run()
 

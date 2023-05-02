@@ -1,6 +1,10 @@
+import queue
 import socket
 import logging
 import json
+import queue
+
+from common.loader.metrics_waiter import MetricsWaiter
 from common.rabbit.rabbit_exchange import RabbitExchange
 from common_utils.utils import receive_string_message, recv_n_bytes, send_string_message
 from common.dag_node import DAGNode
@@ -37,6 +41,11 @@ class Loader(DAGNode):
                 rabbit_hostname,
                 ack_count
             )
+            self._local_queue = queue.Queue()
+            self._metrics_waiter = MetricsWaiter(
+                rabbit_hostname=rabbit_hostname,
+                local_queue=self._local_queue
+            )
             self._weather_eof = False
             self._stations_eof = False
             self._trips_eof = False
@@ -50,6 +59,7 @@ class Loader(DAGNode):
 
     def run(self):
         self._static_ack_waiter.start()
+        self._metrics_waiter.start()
         logging.info('action: run | status: in progress')
         try:
             client_socket, _ = self._socket.accept()
@@ -64,6 +74,13 @@ class Loader(DAGNode):
         send_string_message(client_socket.sendall, ack, 4)
         while not self._trips_eof:
             self.__receive_client_message_and_publish(client_socket)
+        logging.info('action: receiving-metrics | status: in progress')
+        metrics_obj = self._local_queue.get(block=True, timeout=None)
+        logging.info('action: receiving-metrics | status: success')
+        self._metrics_waiter.join()
+        logging.info('action: sending metrics to client | status: in progress')
+        send_string_message(client_socket.sendall, json.dumps(metrics_obj), 4)
+        self.close()
         # Send to client
 
     def on_message_callback(self, message, delivery_tag):

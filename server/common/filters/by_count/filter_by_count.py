@@ -34,6 +34,9 @@ class FilterByCount(NumericRange):
     def on_message_callback(self, message_obj, delivery_tag):
         if message_obj['payload'] == 'EOF':
             return
+        # filter data that has no counts the previous year
+        if message_obj['payload']['year_2016'] == 0:
+            return
         # trips_2017 > 2*trips_2016 <-> trips_2017/2 > trips_2016
         self.high = float(message_obj['payload']['year_2017']) / 2
         to_send, obj = super(FilterByCount, self).on_message_callback(message_obj, delivery_tag)

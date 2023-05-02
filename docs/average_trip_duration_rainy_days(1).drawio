@@ -1,0 +1,217 @@
+<mxfile host="app.diagrams.net" modified="2023-05-02T01:57:33.573Z" agent="Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/111.0" etag="4lmduQ5xU-d-ZqsxnnWw" version="21.2.1" type="device">
+  <diagram name="Page-1" id="CxpBVTkRPeI-uZkntcRi">
+    <mxGraphModel dx="2433" dy="945" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="fmNr_kuE5Ka03_O27gis-81" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="70" y="10" width="1590" height="660" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-64" value="Aggregate" style="verticalAlign=top;align=left;spacingTop=8;spacingLeft=2;spacingRight=12;shape=cube;size=10;direction=south;fontStyle=4;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="240" width="240" height="295" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-63" value="Joiner" style="verticalAlign=top;align=left;spacingTop=8;spacingLeft=2;spacingRight=12;shape=cube;size=10;direction=south;fontStyle=4;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="850" y="240" width="240" height="295" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-5" value="Loader socket" style="shape=umlBoundary;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="100" y="170" width="100" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-7" target="fmNr_kuE5Ka03_O27gis-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-7" target="fmNr_kuE5Ka03_O27gis-15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-7" target="fmNr_kuE5Ka03_O27gis-20">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="210" />
+              <mxPoint x="350" y="338" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-7" value="Loader" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="260" y="165" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-11" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="510" y="160" width="90" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-10" value="" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-11">
+          <mxGeometry x="10" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-9" value="Trips consumer" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-11">
+          <mxGeometry y="5" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-12" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="510" y="290" width="90" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-13" value="" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-12">
+          <mxGeometry x="10" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-14" value="Weather consumer" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-12">
+          <mxGeometry y="5" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-15" target="fmNr_kuE5Ka03_O27gis-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-15" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="400" y="175" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.025;entryY=0.467;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-20" target="fmNr_kuE5Ka03_O27gis-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-20" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="400" y="302.5" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-23" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="740" y="290" width="90" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-24" value="" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-23">
+          <mxGeometry x="10" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-25" value="Filter by precipitation" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-23">
+          <mxGeometry y="5" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-36" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-26" target="fmNr_kuE5Ka03_O27gis-25">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-26" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="650" y="305" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-29" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="980" y="290" width="90" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-30" value="" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-29">
+          <mxGeometry x="10" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-31" value="Joiner by date" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-29">
+          <mxGeometry y="5" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-35" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-32" target="fmNr_kuE5Ka03_O27gis-31">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-32" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="890" y="305" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-25" target="fmNr_kuE5Ka03_O27gis-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-37" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-14" target="fmNr_kuE5Ka03_O27gis-26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.55;entryY=-0.011;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-38" target="fmNr_kuE5Ka03_O27gis-31">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-38" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="770" y="175" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-39" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-9" target="fmNr_kuE5Ka03_O27gis-38">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-41" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="1220" y="290" width="90" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-42" value="" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-41">
+          <mxGeometry x="10" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-43" value="Aggregate by duration" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="fmNr_kuE5Ka03_O27gis-41">
+          <mxGeometry y="5" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-46" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-44" target="fmNr_kuE5Ka03_O27gis-43">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-44" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="305" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-45" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-31" target="fmNr_kuE5Ka03_O27gis-44">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-55" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-50" target="fmNr_kuE5Ka03_O27gis-53">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-50" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="305" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-51" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-43" target="fmNr_kuE5Ka03_O27gis-50">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-69" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-53" target="fmNr_kuE5Ka03_O27gis-68">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1490" y="585" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-53" value="Metrics consumer" style="ellipse;shape=umlControl;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="295" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-56" value="&lt;div&gt;Weather &lt;br&gt;&lt;/div&gt;&lt;div&gt;dates&lt;/div&gt;" style="ellipse;shape=umlEntity;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="980" y="440" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-58" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-31" target="fmNr_kuE5Ka03_O27gis-56">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-61" value="Dates and duration average" style="ellipse;shape=umlEntity;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="440" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-62" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-43" target="fmNr_kuE5Ka03_O27gis-61">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-67" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-65" target="fmNr_kuE5Ka03_O27gis-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-65" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="660" y="60" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-66" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-31" target="fmNr_kuE5Ka03_O27gis-65">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1030" y="95" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-70" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-68">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="300" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-68" value="" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=5;rotation=90;" vertex="1" parent="1">
+          <mxGeometry x="650" y="550" width="30" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-71" value="Trips" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="390" y="240" width="50" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-72" value="Weather" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="380" y="372.5" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-73" value="date, city, prectot" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="610" y="375" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-74" value="date, city, prectot" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="850" y="370" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-75" value="date,city,duration_sec" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="715" y="240" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-76" value="static data ack" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="625" y="120" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-77" value="metrics" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="635" y="610" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-78" value="date,duration_sec" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="370" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-80" value="date,duration_avg" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="370" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-88" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fmNr_kuE5Ka03_O27gis-87" target="fmNr_kuE5Ka03_O27gis-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fmNr_kuE5Ka03_O27gis-87" value="Client" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="-30" y="180" width="30" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -48,4 +48,4 @@ class DAGNode(abc.ABC):
                 buffers_hash[int(md5(obj[hashing_key].encode()).hexdigest(), 16) % hash_modulo].append(obj)
             return buffers_hash
         else:
-            return int(message[hashing_key]) % hash_modulo
+            return int(md5(message[hashing_key].encode()).hexdigest(), 16) % hash_modulo
