@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-from pprint import pprint
 
 base_definitions = lambda replica_dict: f'''
 version: '3.9'
@@ -25,6 +24,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check-port-connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   client:
     container_name: client
@@ -86,6 +90,7 @@ services:
     depends_on:
       - filter_by_city
       - filter_by_year
+      - joiner_by_date
       
   metrics_consumer:
     <<: *node
@@ -111,6 +116,7 @@ services:
       replicas: {replica_dict['stations_consumer']}
     depends_on:
       - filter_by_city
+      - joiner_by_year_city_station_id
 
   weather_consumer:
     <<: *node
@@ -137,7 +143,7 @@ services:
       mode: replicated
       replicas: {replica_dict['filter_by_year']}
     depends_on:
-      - rabbit
+      - joiner_by_year_city_station_id
 
   filter_by_distance:
     <<: *node
@@ -163,7 +169,7 @@ services:
       mode: replicated
       replicas: {replica_dict['filter_by_precipitation']}
     depends_on:
-      - rabbit
+      - joiner_by_date
 
   filter_by_city:
     <<: *node
@@ -178,7 +184,7 @@ services:
       mode: replicated
       replicas: {replica_dict['filter_by_city']}
     depends_on:
-      - rabbit
+      - joiner_by_year_end_station_id
 
   filter_by_count:
     <<: *node
@@ -191,37 +197,7 @@ services:
       mode: replicated
       replicas: {replica_dict['filter_by_count']}
     depends_on:
-      - rabbit
-
-  joiner_by_date:
-    <<: *node
-    image: joiner_by_date:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=JOINER_BY_DATE
-      - FILTER_BY_PRECIPITATION_REPLICAS={replica_dict['filter_by_precipitation']}
-      - TRIPS_CONSUMER_REPLICAS={replica_dict['trips_consumer']}
-      - AGGREGATE_TRIP_DURATION_REPLICAS={replica_dict['aggregate_trip_duration']}
-    deploy:
-      mode: replicated
-      replicas: {replica_dict['joiner_by_date']}
-    depends_on:
-      - rabbit
-
-  joiner_by_year_city_station_id:
-    <<: *node
-    image: joiner_by_year_city_station_id:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=JOINER_BY_YEAR_CITY_STATION_ID
-      - STATIONS_CONSUMER_REPLICAS={replica_dict['stations_consumer']}
-      - FILTER_BY_YEAR_REPLICAS={replica_dict['filter_by_year']}
-      - AGGREGATE_TRIP_COUNT_REPLICAS={replica_dict['aggregate_trip_count']}
-    deploy:
-      mode: replicated
-      replicas: {replica_dict['joiner_by_year_city_station_id']}
-    depends_on:
-      - rabbit
+      - metrics_consumer
 
   joiner_by_year_end_station_id:
     <<: *node
@@ -235,8 +211,54 @@ services:
       mode: replicated
       replicas: {replica_dict['joiner_by_year_end_station_id']}
     depends_on:
-      - rabbit
+      - haversine_applier
       
+
+'''
+
+def joiner_by_date(replica_dict):
+  definition = f'''
+  joiner_by_date:
+    <<: *node
+    image: joiner_by_date:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=JOINER_BY_DATE
+      - FILTER_BY_PRECIPITATION_REPLICAS={replica_dict['filter_by_precipitation']}
+      - TRIPS_CONSUMER_REPLICAS={replica_dict['trips_consumer']}
+      - AGGREGATE_TRIP_DURATION_REPLICAS={replica_dict['aggregate_trip_duration']}
+    deploy:
+      mode: replicated
+      replicas: {replica_dict['joiner_by_date']}
+    depends_on:
+  '''
+  replicas = [f'\n      - aggregate_trip_duration_{i}' for i in range(replica_dict['aggregate_trip_duration'])]
+  definition += ''.join(replicas)
+  return definition
+
+def joiner_by_year_city_station_id(replica_dict):
+  definition = f'''
+  joiner_by_year_city_station_id:
+    <<: *node
+    image: joiner_by_year_city_station_id:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=JOINER_BY_YEAR_CITY_STATION_ID
+      - STATIONS_CONSUMER_REPLICAS={replica_dict['stations_consumer']}
+      - FILTER_BY_YEAR_REPLICAS={replica_dict['filter_by_year']}
+      - AGGREGATE_TRIP_COUNT_REPLICAS={replica_dict['aggregate_trip_count']}
+    deploy:
+      mode: replicated
+      replicas: {replica_dict['joiner_by_year_city_station_id']}
+    depends_on:
+'''
+
+  replicas = [f'\n      - aggregate_trip_count_{i}' for i in range(replica_dict['aggregate_trip_count'])]
+  definition += ''.join(replicas)
+  return definition
+
+def haversine_applier(replica_dict):
+  definition = f'''
   haversine_applier:
     <<: *node
     image: haversine_applier:latest
@@ -249,10 +271,12 @@ services:
     deploy:
       mode: replicated
       replicas: {replica_dict['haversine_applier']}
-    depends_on:
-      - rabbit
+    depends_on:'''
+  replicas = [f'\n      - aggregate_trip_distance_{i}' for i in range(replica_dict['aggregate_trip_distance'])]
+  definition += ''.join(replicas)
+  return definition
+      
 
-'''
 
 aggregate_trip_duration = lambda replicas, replica_dict: [f'''
   aggregate_trip_duration_{n}:
@@ -264,7 +288,7 @@ aggregate_trip_duration = lambda replicas, replica_dict: [f'''
       - JOINER_BY_DATE_REPLICAS={replica_dict['joiner_by_date']}
       - ID={n}
     depends_on:
-      - rabbit
+      - metrics_consumer
 ''' for n in range(replicas)]
 
 aggregate_trip_distance = lambda replicas, replica_dict: [f'''
@@ -278,7 +302,7 @@ aggregate_trip_distance = lambda replicas, replica_dict: [f'''
       - FILTER_BY_DISTANCE_REPLICAS={replica_dict['filter_by_distance']}
       - ID={n}
     depends_on:
-      - rabbit
+      - filter_by_distance
 ''' for n in range(replicas)]
 
 aggregate_trip_count = lambda replicas, replica_dict: [f'''
@@ -289,9 +313,10 @@ aggregate_trip_count = lambda replicas, replica_dict: [f'''
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_COUNT
       - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS={replica_dict['joiner_by_year_city_station_id']}
+      - FILTER_BY_COUNT_REPLICAS={replica_dict['filter_by_count']}
       - ID={n}
     depends_on:
-      - rabbit
+      - filter_by_count
 ''' for n in range(replicas)]
 
 
@@ -325,8 +350,10 @@ def main():
     res = "".join((base,
                    *aggregate_trip_distance(replica_dict['aggregate_trip_distance'], replica_dict),
                    *aggregate_trip_duration(replica_dict['aggregate_trip_duration'], replica_dict),
-                   *aggregate_trip_count(replica_dict['aggregate_trip_count'], replica_dict)
-                   ))
+                   *aggregate_trip_count(replica_dict['aggregate_trip_count'], replica_dict),
+                   *haversine_applier(replica_dict),
+                   *joiner_by_year_city_station_id(replica_dict),
+                   *joiner_by_date(replica_dict)))
     with open('docker-compose.yml', 'w') as f:
         f.write(res)
 

@@ -134,7 +134,8 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             rabbit_hostname=config_params['rabbit_hostname'],
             aggregate_keys=('name',),
             aggregate_id=int(os.getenv('ID', 0)),
-            producers=int(config_params['joiner_by_year_city_station_id_replicas'])
+            producers=int(config_params['joiner_by_year_city_station_id_replicas']),
+            consumers=int(config_params['filter_by_count_replicas']),
         )
     elif node_name == 'AGGREGATE_TRIP_DISTANCE':
         from common.aggregators.aggregate_trip_distance.aggregate_trip_distance import AggregateTripDistance

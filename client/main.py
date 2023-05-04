@@ -3,6 +3,7 @@
 import logging
 from common_utils.utils import initialize_logging, parse_config
 from common.client import Client
+import datetime
 
 
 def main():
@@ -19,10 +20,18 @@ def main():
         data_path=config_params['data_path'],
         output_path=config_params['output_path'],
     )
-    client.run()
+    try:
+        start = datetime.datetime.now()
+        client.run()
+        end = datetime.datetime.now()
+        logging.info(f'action: run | status: success | start_time: {start} | end_time: {end} | rough_time_difference: {end - start}')
+    except BaseException as e:
+        if not client.closed:
+            logging.error(f'action: run | status: failed | reason: {e}') 
+            raise e
+        else: 
+            logging.info('action: stop | status: success | gracefully quitting')
 
 
 if __name__ == '__main__':
-    from time import sleep
-    sleep(25)
     main()

@@ -28,6 +28,7 @@ class Loader(DAGNode):
             self._socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0)
             self._socket.bind(('', port))
             self._socket.listen(backlog)
+            # Obs: capa de negocio conoce al middleware
             self._data_exchange = RabbitExchange(
                 rabbit_connection=self._rabbit_connection,
                 exchange_name=DATA_EXCHANGE,

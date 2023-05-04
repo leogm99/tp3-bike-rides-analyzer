@@ -37,6 +37,4 @@ def main():
 
 
 if __name__ == '__main__':
-    from time import sleep
-    sleep(10)
     main()
