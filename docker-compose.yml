@@ -36,7 +36,7 @@ services:
       - LOGGING_LEVEL=INFO
     volumes:
       - type: bind
-        source: ./client/test_data
+        source: ./client/data
         target: /data
       - type: bind
         source: ./client/output
@@ -56,12 +56,12 @@ services:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=INFO
       - NODE_NAME=LOADER
-      - STATIONS_CONSUMER_REPLICAS=3
-      - WEATHER_CONSUMER_REPLICAS=3
-      - TRIPS_CONSUMER_REPLICAS=3
-      - JOINER_BY_DATE_REPLICAS=3
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=3
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=4
+      - STATIONS_CONSUMER_REPLICAS=1
+      - WEATHER_CONSUMER_REPLICAS=1
+      - TRIPS_CONSUMER_REPLICAS=2
+      - JOINER_BY_DATE_REPLICAS=2
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
       - PORT=8888
     ports:
       - "8888:8888"
@@ -78,12 +78,12 @@ services:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
       - NODE_NAME=TRIPS_CONSUMER
-      - FILTER_BY_CITY_REPLICAS=2
-      - FILTER_BY_YEAR_REPLICAS=3
-      - JOINER_BY_DATE_REPLICAS=3
+      - FILTER_BY_CITY_REPLICAS=5
+      - FILTER_BY_YEAR_REPLICAS=5
+      - JOINER_BY_DATE_REPLICAS=2
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 2
     depends_on:
       - filter_by_city
       - filter_by_year
@@ -95,9 +95,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=METRICS_CONSUMER
-      - FILTER_BY_COUNT_REPLICAS=4
-      - FILTER_BY_DISTANCE_REPLICAS=3
-      - AGGREGATE_TRIP_DURATION_REPLICAS=2
+      - FILTER_BY_COUNT_REPLICAS=1
+      - FILTER_BY_DISTANCE_REPLICAS=1
+      - AGGREGATE_TRIP_DURATION_REPLICAS=5
     depends_on:
       - rabbit 
 
@@ -107,10 +107,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=STATIONS_CONSUMER
-      - FILTER_BY_CITY_REPLICAS=2
+      - FILTER_BY_CITY_REPLICAS=5
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 1
     depends_on:
       - filter_by_city
       - joiner_by_year_city_station_id
@@ -121,10 +121,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=WEATHER_CONSUMER
-      - FILTER_BY_PRECIPITATION_REPLICAS=3
+      - FILTER_BY_PRECIPITATION_REPLICAS=1
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 1
     depends_on:
       - filter_by_precipitation
 
@@ -134,11 +134,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_YEAR
-      - TRIPS_CONSUMER_REPLICAS=3
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=3
+      - TRIPS_CONSUMER_REPLICAS=2
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 5
     depends_on:
       - joiner_by_year_city_station_id
 
@@ -148,10 +148,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_DISTANCE
-      - AGGREGATE_TRIP_DISTANCE_REPLICAS=4
+      - AGGREGATE_TRIP_DISTANCE_REPLICAS=5
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 1
     depends_on:
       - rabbit
 
@@ -161,10 +161,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_PRECIPITATION
-      - WEATHER_CONSUMER_REPLICAS=3
+      - WEATHER_CONSUMER_REPLICAS=1
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 1
     depends_on:
       - joiner_by_date
 
@@ -174,12 +174,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_CITY
-      - TRIPS_CONSUMER_REPLICAS=3
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=4
-      - STATIONS_CONSUMER_REPLICAS=3
+      - TRIPS_CONSUMER_REPLICAS=2
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
+      - STATIONS_CONSUMER_REPLICAS=1
     deploy:
       mode: replicated
-      replicas: 2
+      replicas: 5
     depends_on:
       - joiner_by_year_end_station_id
 
@@ -189,10 +189,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_COUNT
-      - AGGREGATE_TRIP_COUNT_REPLICAS=3
+      - AGGREGATE_TRIP_COUNT_REPLICAS=5
     deploy:
       mode: replicated
-      replicas: 4
+      replicas: 1
     depends_on:
       - metrics_consumer
 
@@ -202,11 +202,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=JOINER_BY_YEAR_END_STATION_ID
-      - FILTER_BY_CITY_REPLICAS=2
+      - FILTER_BY_CITY_REPLICAS=5
       - HAVERSINE_APPLIER_REPLICAS=3
     deploy:
       mode: replicated
-      replicas: 4
+      replicas: 2
     depends_on:
       - haversine_applier
       
@@ -219,7 +219,7 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_DISTANCE
       - HAVERSINE_APPLIER_REPLICAS=3
-      - FILTER_BY_DISTANCE_REPLICAS=3
+      - FILTER_BY_DISTANCE_REPLICAS=1
       - ID=0
     depends_on:
       - filter_by_distance
@@ -231,7 +231,7 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_DISTANCE
       - HAVERSINE_APPLIER_REPLICAS=3
-      - FILTER_BY_DISTANCE_REPLICAS=3
+      - FILTER_BY_DISTANCE_REPLICAS=1
       - ID=1
     depends_on:
       - filter_by_distance
@@ -243,7 +243,7 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_DISTANCE
       - HAVERSINE_APPLIER_REPLICAS=3
-      - FILTER_BY_DISTANCE_REPLICAS=3
+      - FILTER_BY_DISTANCE_REPLICAS=1
       - ID=2
     depends_on:
       - filter_by_distance
@@ -255,8 +255,20 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_DISTANCE
       - HAVERSINE_APPLIER_REPLICAS=3
-      - FILTER_BY_DISTANCE_REPLICAS=3
+      - FILTER_BY_DISTANCE_REPLICAS=1
       - ID=3
+    depends_on:
+      - filter_by_distance
+
+  aggregate_trip_distance_4:
+    <<: *node
+    image: aggregate_trip_distance:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_DISTANCE
+      - HAVERSINE_APPLIER_REPLICAS=3
+      - FILTER_BY_DISTANCE_REPLICAS=1
+      - ID=4
     depends_on:
       - filter_by_distance
 
@@ -266,7 +278,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_DURATION
-      - JOINER_BY_DATE_REPLICAS=3
+      - JOINER_BY_DATE_REPLICAS=2
       - ID=0
     depends_on:
       - metrics_consumer
@@ -277,8 +289,41 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_DURATION
-      - JOINER_BY_DATE_REPLICAS=3
+      - JOINER_BY_DATE_REPLICAS=2
       - ID=1
+    depends_on:
+      - metrics_consumer
+
+  aggregate_trip_duration_2:
+    <<: *node
+    image: aggregate_trip_duration:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_DURATION
+      - JOINER_BY_DATE_REPLICAS=2
+      - ID=2
+    depends_on:
+      - metrics_consumer
+
+  aggregate_trip_duration_3:
+    <<: *node
+    image: aggregate_trip_duration:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_DURATION
+      - JOINER_BY_DATE_REPLICAS=2
+      - ID=3
+    depends_on:
+      - metrics_consumer
+
+  aggregate_trip_duration_4:
+    <<: *node
+    image: aggregate_trip_duration:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_DURATION
+      - JOINER_BY_DATE_REPLICAS=2
+      - ID=4
     depends_on:
       - metrics_consumer
 
@@ -288,8 +333,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=3
-      - FILTER_BY_COUNT_REPLICAS=4
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
+      - FILTER_BY_COUNT_REPLICAS=1
       - ID=0
     depends_on:
       - filter_by_count
@@ -300,8 +345,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=3
-      - FILTER_BY_COUNT_REPLICAS=4
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
+      - FILTER_BY_COUNT_REPLICAS=1
       - ID=1
     depends_on:
       - filter_by_count
@@ -312,9 +357,33 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=3
-      - FILTER_BY_COUNT_REPLICAS=4
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
+      - FILTER_BY_COUNT_REPLICAS=1
       - ID=2
+    depends_on:
+      - filter_by_count
+
+  aggregate_trip_count_3:
+    <<: *node
+    image: aggregate_trip_count:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_COUNT
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
+      - FILTER_BY_COUNT_REPLICAS=1
+      - ID=3
+    depends_on:
+      - filter_by_count
+
+  aggregate_trip_count_4:
+    <<: *node
+    image: aggregate_trip_count:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_COUNT
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
+      - FILTER_BY_COUNT_REPLICAS=1
+      - ID=4
     depends_on:
       - filter_by_count
 
@@ -325,8 +394,8 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=HAVERSINE_APPLIER
       - HAVERSINE_APPLIER_REPLICAS=3
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=4
-      - AGGREGATE_TRIP_DISTANCE_REPLICAS=4
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
+      - AGGREGATE_TRIP_DISTANCE_REPLICAS=5
     deploy:
       mode: replicated
       replicas: 3
@@ -335,36 +404,42 @@ services:
       - aggregate_trip_distance_1
       - aggregate_trip_distance_2
       - aggregate_trip_distance_3
+      - aggregate_trip_distance_4
   joiner_by_year_city_station_id:
     <<: *node
     image: joiner_by_year_city_station_id:latest
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=JOINER_BY_YEAR_CITY_STATION_ID
-      - STATIONS_CONSUMER_REPLICAS=3
-      - FILTER_BY_YEAR_REPLICAS=3
-      - AGGREGATE_TRIP_COUNT_REPLICAS=3
+      - STATIONS_CONSUMER_REPLICAS=1
+      - FILTER_BY_YEAR_REPLICAS=5
+      - AGGREGATE_TRIP_COUNT_REPLICAS=5
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 2
     depends_on:
 
       - aggregate_trip_count_0
       - aggregate_trip_count_1
       - aggregate_trip_count_2
+      - aggregate_trip_count_3
+      - aggregate_trip_count_4
   joiner_by_date:
     <<: *node
     image: joiner_by_date:latest
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=JOINER_BY_DATE
-      - FILTER_BY_PRECIPITATION_REPLICAS=3
-      - TRIPS_CONSUMER_REPLICAS=3
-      - AGGREGATE_TRIP_DURATION_REPLICAS=2
+      - FILTER_BY_PRECIPITATION_REPLICAS=1
+      - TRIPS_CONSUMER_REPLICAS=2
+      - AGGREGATE_TRIP_DURATION_REPLICAS=5
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 2
     depends_on:
   
       - aggregate_trip_duration_0
       - aggregate_trip_duration_1
+      - aggregate_trip_duration_2
+      - aggregate_trip_duration_3
+      - aggregate_trip_duration_4
