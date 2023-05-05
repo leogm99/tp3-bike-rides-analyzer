@@ -33,8 +33,13 @@ class FilterByPrecipitation(NumericRange):
         self._weather_consumers = 1
 
     def run(self):
-        self._input_queue.consume(self.on_message_callback, self.on_producer_finished)
-        self._rabbit_connection.start_consuming()
+        try:
+            self._input_queue.consume(self.on_message_callback, self.on_producer_finished)
+            self._rabbit_connection.start_consuming()
+        except BaseException as e:
+            if not self.closed:
+                raise e from e
+            logging.info('action: run | status: success')
 
     def on_message_callback(self, message, _delivery_tag):
         to_send, message_obj = super(FilterByPrecipitation, self).on_message_callback(message, _delivery_tag)

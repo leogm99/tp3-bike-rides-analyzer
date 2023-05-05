@@ -30,8 +30,12 @@ class AggregateTripDistance(RollingAverageAggregator):
         )
 
     def run(self):
-        self._input_queue.consume(self.on_message_callback, self.on_producer_finished)
-        self._rabbit_connection.start_consuming()
+        try:
+            self._input_queue.consume(self.on_message_callback, self.on_producer_finished)
+            self._rabbit_connection.start_consuming()
+        except BaseException as e:
+            if not self.closed:
+                raise e from e
 
     def on_message_callback(self, message, delivery_tag):
         payload = message['payload']

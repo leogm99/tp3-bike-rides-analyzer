@@ -27,18 +27,21 @@ class MetricsConsumer(DAGNode):
         self._metrics = defaultdict(list)
 
     def run(self):
-        self._input_queue.consume(self.on_message_callback, self.on_producer_finished)
-        self._rabbit_connection.start_consuming()
+        try:
+            self._input_queue.consume(self.on_message_callback, self.on_producer_finished)
+            self._rabbit_connection.start_consuming()
+        except BaseException as e:
+            if not self.closed:
+                raise e from e
+            logging.info('action: run | status: sucess')
 
     def on_message_callback(self, message, delivery_tag):
-        logging.info(message)
         if message['payload'] == 'EOF':
             return
         self._metrics[message['type']].append(message['payload'])
 
     def on_producer_finished(self, message, delivery_tag):
         self.publish(json.dumps(self._metrics), self._output_exchange, routing_key=LOADER_ROUTING_KEY)
-        logging.info(self._metrics)
         logging.info('action: publish-to-loader | status: success')
         self.close()
 

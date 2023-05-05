@@ -46,7 +46,9 @@ class TripsConsumer(DAGNode):
             self._trips_queue.consume(self.on_message_callback, self.on_producer_finished)
             self._rabbit_connection.start_consuming()
         except BaseException as e:
-            logging.info(f'error: {e}')
+            if not self.closed:
+                raise e from e
+            logging.info('action: run | status: success')
 
     def on_message_callback(self, message_obj, _delivery_tag):
         payload = message_obj['payload']

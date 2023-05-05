@@ -1,4 +1,3 @@
-import queue
 import socket
 import logging
 import json
@@ -50,6 +49,7 @@ class Loader(DAGNode):
             self._weather_eof = False
             self._stations_eof = False
             self._trips_eof = False
+            self._client_sock = None
 
         except socket.error as se:
             logging.error(f'action: socket-create | status: failed | reason: {se}')
@@ -59,30 +59,32 @@ class Loader(DAGNode):
             raise e
 
     def run(self):
-        self._static_ack_waiter.start()
-        self._metrics_waiter.start()
-        logging.info('action: run | status: in progress')
         try:
+            self._static_ack_waiter.start()
+            self._metrics_waiter.start()
+            logging.info('action: run | status: in progress')
             client_socket, _ = self._socket.accept()
-        except socket.error as se:
-            logging.error(f'action: socket-accept | status: failed | reason: {se}')
-            raise se
-        logging.info(f'action: socket-accept | status: success')
-        while not self._weather_eof or not self._stations_eof:
-            self.__receive_client_message_and_publish(client_socket)
-        self._static_ack_waiter.join()
-        ack = json.dumps({'type': 'ack'})
-        send_string_message(client_socket.sendall, ack, 4)
-        while not self._trips_eof:
-            self.__receive_client_message_and_publish(client_socket)
-        logging.info('action: receiving-metrics | status: in progress')
-        metrics_obj = self._local_queue.get(block=True, timeout=None)
-        logging.info('action: receiving-metrics | status: success')
-        self._metrics_waiter.join()
-        logging.info('action: sending metrics to client | status: in progress')
-        send_string_message(client_socket.sendall, json.dumps(metrics_obj), 4)
-        self.close()
-        # Send to client
+            self._client_sock = client_socket
+            logging.info(f'action: socket-accept | status: success')
+            while not self._weather_eof or not self._stations_eof:
+                self.__receive_client_message_and_publish(self._client_sock)
+            self._static_ack_waiter.join()
+            ack = json.dumps({'type': 'ack'})
+            send_string_message(self._client_sock.sendall, ack, 4)
+            while not self._trips_eof:
+                self.__receive_client_message_and_publish(self._client_sock)
+            logging.info('action: receiving-metrics | status: in progress')
+            metrics_obj = self._local_queue.get(block=True, timeout=None)
+            logging.info('action: receiving-metrics | status: success')
+            self._metrics_waiter.join()
+            logging.info('action: sending metrics to client | status: in progress')
+            send_string_message(self._client_sock.sendall, json.dumps(metrics_obj), 4)
+            self.close()
+        except BrokenPipeError:
+            logging.info('action: receive_client_message | connection closed by client')
+        except BaseException as e:
+            if not self.closed:
+                raise e from e
 
     def on_message_callback(self, message, delivery_tag):
         raise NotImplementedError
@@ -120,6 +122,17 @@ class Loader(DAGNode):
             )
 
     def close(self):
-        super().close()
-        self._socket.shutdown(socket.SHUT_RDWR)
-        self._socket.close()
+        if not self.closed:
+            logging.info('action: close | status: in-progress')
+            super(Loader, self).close()
+            if self._client_sock:
+                self._client_sock.shutdown(socket.SHUT_RDWR)
+                self._client_sock.close()
+            self._socket.shutdown(socket.SHUT_RDWR)
+            self._socket.close()
+            if self._metrics_waiter.is_alive():
+                self._metrics_waiter.close()
+                self._metrics_waiter.join()
+            if self._static_ack_waiter.is_alive():
+                self._static_ack_waiter.close()
+                self._static_ack_waiter.join()

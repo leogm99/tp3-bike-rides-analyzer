@@ -1,4 +1,5 @@
 import abc
+import logging
 import signal
 from typing import Union
 from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
@@ -33,6 +34,7 @@ class DAGNode(abc.ABC):
         pass
 
     def close(self):
+        logging.info('action: close-dag-node')
         if not self.closed:
             self.closed = True
             self._rabbit_connection.close()

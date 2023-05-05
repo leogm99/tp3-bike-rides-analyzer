@@ -14,6 +14,8 @@ class RabbitBlockingConnection:
         )
         self._channel = self._conn.channel()
         self._channel.basic_qos(prefetch_count=50)
+        self._closed = False
+        self._consuming = False
 
     def queue_declare(self, queue_name: str) -> str:
         result = self._channel.queue_declare(
@@ -53,6 +55,7 @@ class RabbitBlockingConnection:
         )
 
     def start_consuming(self):
+        self._consuming = True
         self._channel.start_consuming()
 
     def cancel_consumer(self, consumer_tag):
@@ -62,6 +65,8 @@ class RabbitBlockingConnection:
         self._channel.basic_ack(delivery_tag=delivery_tag)
 
     def close(self):
-        self._channel.stop_consuming()
-        self._channel.close()
-        self._conn.close()
+        if not self._closed:
+            self._closed = True
+            if self._consuming:
+                self._channel.stop_consuming()
+            self._conn.close()

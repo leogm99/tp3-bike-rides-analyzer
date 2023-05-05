@@ -44,13 +44,15 @@ class JoinByDate(Joiner):
         self._consumers = consumers
 
     def run(self):
-        self._weather_date_input_queue.consume(self.on_message_callback,
-                                               self.on_producer_finished)
-        self._trips_input_queue.consume(self.on_message_callback, self.on_producer_finished)
-        self._rabbit_connection.start_consuming()
-
-    def on_eof_threshold_reached(self, message_type: str):
-        pass
+        try:
+            self._weather_date_input_queue.consume(self.on_message_callback,
+                                                   self.on_producer_finished)
+            self._trips_input_queue.consume(self.on_message_callback, self.on_producer_finished)
+            self._rabbit_connection.start_consuming()
+        except BaseException as e:
+            if not self.closed:
+                raise e from e
+            logging.info('action: run | status: success')
 
     def join(self, payload):
         join_data = []

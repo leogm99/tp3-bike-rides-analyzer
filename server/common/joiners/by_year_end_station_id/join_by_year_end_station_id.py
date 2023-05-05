@@ -43,9 +43,14 @@ class JoinByYearEndStationId(Joiner):
         self._consumers = consumers
 
     def run(self):
-        self._stations_input_queue.consume(self.on_message_callback, self.on_producer_finished)
-        self._trips_input_queue.consume(self.on_message_callback, self.on_producer_finished)
-        self._rabbit_connection.start_consuming()
+        try:
+            self._stations_input_queue.consume(self.on_message_callback, self.on_producer_finished)
+            self._trips_input_queue.consume(self.on_message_callback, self.on_producer_finished)
+            self._rabbit_connection.start_consuming()
+        except BaseException as e:
+            if not self.closed:
+                raise e from e
+            logging.info('action: run | status: success')
 
     def on_message_callback(self, message, delivery_tag):
         if message['type'] == 'stations':
