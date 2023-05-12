@@ -5,8 +5,8 @@ from common.dag_node import DAGNode
 
 
 class Applier(DAGNode, ABC):
-    def __init__(self, rabbit_hostname: str):
-        super().__init__(rabbit_hostname)
+    def __init__(self):
+        super().__init__()
 
     @abc.abstractmethod
     def apply(self, message):

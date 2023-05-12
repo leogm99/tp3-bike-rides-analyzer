@@ -1,30 +1,23 @@
 import logging
 from threading import Thread
 
-from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
-from common.rabbit.rabbit_queue import RabbitQueue
+from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
 
 QUEUE_NAME = 'static_data_ack'
 
 
 class StaticDataAckWaiter(Thread):
-    def __init__(self, rabbit_hostname: str, needed_ack):
+    def __init__(self, needed_ack: int, middleware: StaticDataAckWaiterMiddleware):
         super().__init__()
-        self._rabbit_connection = RabbitBlockingConnection(
-            rabbit_hostname
-        )
-        self._static_data_ack = RabbitQueue(
-            self._rabbit_connection,
-            queue_name='static_data_ack'
-        )
+        self._middleware = middleware
         self._needed_ack = needed_ack
         self._ack_count = 0
         self._closed = False
 
     def run(self) -> None:
         try:
-            self._static_data_ack.consume(self.ack_receiver, lambda *_: None)
-            self._rabbit_connection.start_consuming()
+            self._middleware.receive_ack(self.ack_receiver, lambda *_: None)
+            self._middleware.start()
         except BaseException as e:
             if not self._closed:
                 raise e from e
@@ -39,6 +32,6 @@ class StaticDataAckWaiter(Thread):
         if not self._closed:
             self._closed = True
             try:
-                self._rabbit_connection.close()
+                self._middleware.stop()
             except BaseException as e:
                 pass

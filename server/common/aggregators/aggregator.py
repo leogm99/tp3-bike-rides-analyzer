@@ -9,10 +9,8 @@ from common.dag_node import DAGNode
 
 
 class Aggregator(DAGNode):
-    def __init__(self, 
-                 rabbit_hostname: str,
-                 aggregate_keys: Tuple[str, ...]):
-        super().__init__(rabbit_hostname)
+    def __init__(self, aggregate_keys: Tuple[str, ...]):
+        super().__init__()
         self._aggregate_keys = aggregate_keys
 
     @abc.abstractmethod

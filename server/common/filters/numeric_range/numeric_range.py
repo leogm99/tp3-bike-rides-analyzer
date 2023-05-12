@@ -8,9 +8,8 @@ class NumericRange(Filter, ABC):
     def __init__(self, filter_key: str,
                  low: float,
                  high: float,
-                 rabbit_hostname: str,
                  keep_filter_key: bool = False):
-        super().__init__(filter_key, rabbit_hostname, keep_filter_key)
+        super().__init__(filter_key, keep_filter_key)
         self._low = low
         self._high = high
 

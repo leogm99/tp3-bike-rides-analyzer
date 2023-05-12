@@ -3,48 +3,46 @@ import logging
 import json
 import queue
 
+from common.loader.loader_middleware import LoaderMiddleware
 from common.loader.metrics_waiter import MetricsWaiter
-from common.rabbit.rabbit_exchange import RabbitExchange
+from common.loader.metrics_waiter_middleware import MetricsWaiterMiddleware
 from common_utils.utils import receive_string_message, recv_n_bytes, send_string_message
 from common.dag_node import DAGNode
 from common.loader.static_data_ack_waiter import StaticDataAckWaiter
-
-DATA_EXCHANGE = 'data'
-DATA_EXCHANGE_TYPE = 'direct'
+from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
 
 
 class Loader(DAGNode):
     def __init__(self,
                  port: int,
                  backlog: int,
-                 rabbit_hostname: str,
                  stations_consumer_replica_count: int,
                  weather_consumer_replica_count: int,
                  trips_consumer_replica_count: int,
-                 ack_count: int):
-        super().__init__(rabbit_hostname)
+                 ack_count: int,
+                 middleware: LoaderMiddleware,
+                 static_data_ack_middleware: StaticDataAckWaiterMiddleware,
+                 metrics_waiter_middleware: MetricsWaiterMiddleware):
+        super().__init__()
         try:
             self._socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0)
             self._socket.bind(('', port))
             self._socket.listen(backlog)
-            # Obs: capa de negocio conoce al middleware
-            self._data_exchange = RabbitExchange(
-                rabbit_connection=self._rabbit_connection,
-                exchange_name=DATA_EXCHANGE,
-                exchange_type=DATA_EXCHANGE_TYPE,
-            )
+
+            self._middleware = middleware
+
             self._stations_consumer_replica_count = stations_consumer_replica_count
             self._weather_consumer_replica_count = weather_consumer_replica_count
             self._trips_consumer_replica_count = trips_consumer_replica_count
 
             self._static_ack_waiter = StaticDataAckWaiter(
-                rabbit_hostname,
-                ack_count
+                ack_count,
+                middleware=static_data_ack_middleware,
             )
             self._local_queue = queue.Queue()
             self._metrics_waiter = MetricsWaiter(
-                rabbit_hostname=rabbit_hostname,
-                local_queue=self._local_queue
+                local_queue=self._local_queue,
+                middleware=metrics_waiter_middleware,
             )
             self._weather_eof = False
             self._stations_eof = False
@@ -95,20 +93,21 @@ class Loader(DAGNode):
     def on_eof_threshold_reached(self, eof_type: str):
         if eof_type == 'stations':
             replica_count = self._stations_consumer_replica_count
+            send = self._middleware.send_stations
             self._stations_eof = True
         elif eof_type == 'weather':
             replica_count = self._weather_consumer_replica_count
+            send = self._middleware.send_weather
             self._weather_eof = True
         elif eof_type == 'trips':
             replica_count = self._trips_consumer_replica_count
+            send = self._middleware.send_trips
             self._trips_eof = True
         else:
             raise ValueError("Invalid type of data received")
         eof = {'type': eof_type, 'payload': 'EOF'}
         for _ in range(replica_count):
-            self.publish(json.dumps(eof),
-                         exchange=self._data_exchange,
-                         routing_key=eof_type)
+            send(json.dumps(eof))
 
     def __receive_client_message_and_publish(self, client_socket):
         message = receive_string_message(recv_n_bytes, client_socket, 4)
@@ -116,10 +115,14 @@ class Loader(DAGNode):
         if json_message['payload'] == 'EOF':
             self.on_eof_threshold_reached(json_message['type'])
         else:
-            self._data_exchange.publish(
-                message,
-                routing_key=json_message['type'],
-            )
+            if json_message['type'] == 'trips':
+                self._middleware.send_trips(message)
+            elif json_message['type'] == 'stations':
+                self._middleware.send_stations(message)
+            elif json_message['type'] == 'weather':
+                self._middleware.send_weather(message)
+            else:
+                raise ValueError("Invalid type of data received")
 
     def close(self):
         if not self.closed:

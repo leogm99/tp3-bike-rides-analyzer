@@ -1,12 +1,8 @@
 import json
 import logging
 
+from common.filters.by_count.filter_by_count_middleware import FilterByCountMiddleware
 from common.filters.numeric_range.numeric_range import NumericRange
-from common.rabbit.rabbit_exchange import RabbitExchange
-from common.rabbit.rabbit_queue import RabbitQueue
-
-QUEUE_NAME = 'filter_by_count'
-METRICS_CONSUMER_ROUTING_KEY = 'metrics_consumer'
 
 
 class FilterByCount(NumericRange):
@@ -14,23 +10,15 @@ class FilterByCount(NumericRange):
                  filter_key: str,
                  low: float,
                  high: float,
-                 rabbit_hostname: str,
                  keep_filter_key: bool = False,
-                 producers: int = 1):
-        super().__init__(filter_key, low, high, rabbit_hostname, keep_filter_key)
-        self._input_queue = RabbitQueue(
-            self._rabbit_connection,
-            queue_name=QUEUE_NAME,
-            producers=producers,
-        )
-        self._output_exchange = RabbitExchange(
-            self._rabbit_connection,
-        )
+                 middleware: FilterByCountMiddleware = None):
+        super().__init__(filter_key, low, high, keep_filter_key)
+        self._middleware = middleware
 
     def run(self):
         try:
-            self._input_queue.consume(self.on_message_callback, self.on_producer_finished)
-            self._rabbit_connection.start_consuming()
+            self._middleware.receive_count_aggregate(self.on_message_callback, self.on_producer_finished)
+            self._middleware.start()
         except BaseException as e:
             if not self.closed:
                 raise e from e
@@ -46,10 +34,8 @@ class FilterByCount(NumericRange):
         self.high = float(message_obj['payload']['year_2017']) / 2
         to_send, obj = super(FilterByCount, self).on_message_callback(message_obj, delivery_tag)
         if to_send:
-            self.publish(json.dumps({'type': 'count_metric', 'payload': obj['payload']}), self._output_exchange,
-                         routing_key=METRICS_CONSUMER_ROUTING_KEY)
+            self._middleware.send_metrics_message(json.dumps({'type': 'count_metric', 'payload': obj['payload']}))
 
     def on_producer_finished(self, message, delivery_tag):
-        self.publish(json.dumps({'type': 'count_metric', 'payload': 'EOF'}), self._output_exchange,
-                     routing_key=METRICS_CONSUMER_ROUTING_KEY)
-        self.close()
+        self._middleware.send_metrics_message(json.dumps({'type': 'count_metric', 'payload': 'EOF'}))
+        self._middleware.stop()

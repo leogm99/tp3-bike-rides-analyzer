@@ -1,29 +1,17 @@
 import abc
 import logging
 import signal
-from typing import Union
-from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 from hashlib import md5
 
 
 class DAGNode(abc.ABC):
-    def __init__(self, rabbit_hostname: str):
+    def __init__(self):
         self.__register_sigterm_handle()
         self.closed = False
-        self._rabbit_connection = RabbitBlockingConnection(
-            rabbit_hostname=rabbit_hostname,
-        )
 
     @abc.abstractmethod
     def run(self):
         pass
-
-    @staticmethod
-    def publish(message: Union[str | bytes], exchange, routing_key=''):
-        exchange.publish(
-            message,
-            routing_key=routing_key,
-        )
 
     @abc.abstractmethod
     def on_message_callback(self, message, delivery_tag):
@@ -37,7 +25,6 @@ class DAGNode(abc.ABC):
         logging.info('action: close-dag-node')
         if not self.closed:
             self.closed = True
-            self._rabbit_connection.close()
 
     def __register_sigterm_handle(self):
         signal.signal(signal.SIGTERM, lambda *_: self.close())

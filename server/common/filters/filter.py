@@ -7,9 +7,8 @@ from typing import Any, Dict
 
 class Filter(DAGNode):
     def __init__(self, filter_key: str,
-                 rabbit_hostname: str,
                  keep_filter_key: bool = False):
-        super().__init__(rabbit_hostname)
+        super().__init__()
         self._filter_key = filter_key
         self._keep_filter_key = keep_filter_key
 

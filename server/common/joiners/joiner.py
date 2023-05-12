@@ -6,9 +6,8 @@ from typing import Tuple
 
 class Joiner(DAGNode, ABC):
     def __init__(self,
-                 index_key: Tuple[str, ...],
-                 rabbit_hostname: str):
-        super().__init__(rabbit_hostname)
+                 index_key: Tuple[str, ...]):
+        super().__init__()
         self._index_key = tuple(sorted(index_key))
         self._side_table = {}
 

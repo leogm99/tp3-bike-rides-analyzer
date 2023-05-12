@@ -9,10 +9,8 @@ class AverageTuple(NamedTuple):
 
 
 class RollingAverageAggregator(Aggregator, ABC):
-    def __init__(self, rabbit_hostname: str,
-                 aggregate_keys: Tuple[str, ...],
-                 average_key: str):
-        super().__init__(rabbit_hostname, aggregate_keys)
+    def __init__(self, aggregate_keys: Tuple[str, ...], average_key: str):
+        super().__init__(aggregate_keys)
         self._aggregate_table = dict.fromkeys([], AverageTuple(0, 0))
         self._aggregate_keys = aggregate_keys
         self._average_key = average_key

@@ -7,9 +7,8 @@ from typing import Any, Dict
 class StringEquality(Filter, ABC):
     def __init__(self, filter_key: str,
                  filter_value: str,
-                 rabbit_hostname: str,
                  keep_filter_key: bool = False):
-        super().__init__(filter_key, rabbit_hostname, keep_filter_key)
+        super().__init__(filter_key, keep_filter_key)
         self._filter_value = filter_value
 
     def filter_function(self, message_object: Dict[str, Any]):

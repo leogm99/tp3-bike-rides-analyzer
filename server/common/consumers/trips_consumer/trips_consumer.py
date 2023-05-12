@@ -1,15 +1,7 @@
+from common.consumers.trips_consumer.trips_consumer_middleware import TripsConsumerMiddleware
 from common.dag_node import DAGNode
-from common.rabbit.rabbit_queue import RabbitQueue
-from common.rabbit.rabbit_exchange import RabbitExchange
 from common.utils import select_message_fields_decorator, message_from_payload_decorator
 import logging
-
-DATA_EXCHANGE = 'data'
-DATA_EXCHANGE_TYPE = 'direct'
-QUEUE_NAME = 'trips'
-JOINER_BY_DATE = 'join_by_date'
-FILTER_BY_YEAR_ROUTING_KEY = 'filter_by_year'
-FILTER_BY_CITY_ROUTING_KEY = 'filter_by_city_trips'
 
 
 class TripsConsumer(DAGNode):
@@ -18,33 +10,20 @@ class TripsConsumer(DAGNode):
     join_by_date = ['start_date', 'duration_sec', 'city']
 
     def __init__(self,
-                 rabbit_hostname: str,
-                 trips_producers: int = 1,
                  filter_by_city_consumers: int = 1,
                  filter_by_year_consumers: int = 1,
-                 joiner_by_date_consumers: int = 1):
-        super().__init__(rabbit_hostname)
-
-        self._trips_queue = RabbitQueue(
-            rabbit_connection=self._rabbit_connection,
-            queue_name=QUEUE_NAME,
-            bind_exchange=DATA_EXCHANGE,
-            bind_exchange_type=DATA_EXCHANGE_TYPE,
-            producers=trips_producers,
-            routing_key=QUEUE_NAME,
-        )
-
-        self._output_exchange = RabbitExchange(
-            self._rabbit_connection,
-        )
+                 joiner_by_date_consumers: int = 1,
+                 middleware: TripsConsumerMiddleware = None):
+        super().__init__()
+        self._middleware = middleware
         self._filter_by_city_consumers = filter_by_city_consumers
         self._filter_by_year_consumers = filter_by_year_consumers
         self._joiner_by_date_consumers = joiner_by_date_consumers
 
     def run(self):
         try:
-            self._trips_queue.consume(self.on_message_callback, self.on_producer_finished)
-            self._rabbit_connection.start_consuming()
+            self._middleware.receive_trips(self.on_message_callback, self.on_producer_finished)
+            self._middleware.start()
         except BaseException as e:
             if not self.closed:
                 raise e from e
@@ -64,19 +43,19 @@ class TripsConsumer(DAGNode):
             self.__send_message_to_filter_by_city('EOF')
         for _ in range(self._joiner_by_date_consumers):
             self.__send_message_to_joiner_by_date('EOF')
-        self.close()
+        self._middleware.stop()
 
     @select_message_fields_decorator(fields=filter_by_city_fields)
     @message_from_payload_decorator(message_type='trips')
     def __send_message_to_filter_by_city(self, message: str):
-        self.publish(message, self._output_exchange, FILTER_BY_CITY_ROUTING_KEY)
+        self._middleware.send_filter_by_city_message(message)
 
     @select_message_fields_decorator(fields=filter_by_year_fields)
     @message_from_payload_decorator(message_type='trips')
     def __send_message_to_filter_by_year(self, message: str):
-        self.publish(message, self._output_exchange, FILTER_BY_YEAR_ROUTING_KEY)
+        self._middleware.send_filter_by_year_message(message)
 
     @select_message_fields_decorator(fields=join_by_date)
     @message_from_payload_decorator(message_type='trips')
     def __send_message_to_joiner_by_date(self, message: str):
-        self.publish(message, self._output_exchange, JOINER_BY_DATE)
+        self._middleware.send_joiner_message(message)

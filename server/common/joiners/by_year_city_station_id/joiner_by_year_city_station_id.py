@@ -2,50 +2,40 @@ import json
 import logging
 from typing import Tuple
 
+from common.joiners.by_year_city_station_id.joiner_by_year_city_station_id_middleware import \
+    JoinByYearCityStationIdMiddleware
 from common.joiners.joiner import Joiner
-from common.rabbit.rabbit_exchange import RabbitExchange
-from common.rabbit.rabbit_queue import RabbitQueue
-
-STATIONS_EXCHANGE = 'join_by_year_city_station_id_stations'
-STATIONS_EXCHANGE_TYPE = 'fanout'
-QUEUE_NAME = 'joiner_by_year_city_station_id'
-STATIC_DATA_ACK_ROUTING_KEY = 'static_data_ack'
-AGGREGATE_TRIP_COUNT_ROUTING_KEY = lambda n: f'aggregate_trip_count_{n}'
 
 
 class JoinByYearCityStationId(Joiner):
     def __init__(self,
                  index_key: Tuple[str, ...],
-                 rabbit_hostname: str,
-                 stations_producers: int = 1,
-                 trips_producers: int = 1,
-                 consumers: int = 1):
-        super().__init__(index_key, rabbit_hostname)
-        self._stations_input_queue = RabbitQueue(
-            self._rabbit_connection,
-            bind_exchange=STATIONS_EXCHANGE,
-            bind_exchange_type=STATIONS_EXCHANGE_TYPE,
-            producers=stations_producers,
-        )
-        self._trips_input_queue = RabbitQueue(
-            self._rabbit_connection,
-            queue_name=QUEUE_NAME,
-            producers=trips_producers,
-        )
-        self._output_exchange = RabbitExchange(
-            self._rabbit_connection
-        )
+                 consumers: int = 1,
+                 middleware: JoinByYearCityStationIdMiddleware = None):
+        super().__init__(index_key)
+        self._middleware = middleware
         self._consumers = consumers
 
     def run(self):
         try:
-            self._stations_input_queue.consume(self.on_message_callback, self.on_producer_finished)
-            self._trips_input_queue.consume(self.on_message_callback, self.on_producer_finished)
-            self._rabbit_connection.start_consuming()
+            self._middleware.receive_stations(self.on_message_callback, self.on_producer_finished)
+            self._middleware.receive_trips(self.on_message_callback, self.on_producer_finished)
+            self._middleware.start()
         except BaseException as e:
             if not self.closed:
                 raise e from e
             logging.info('action: run | status: success')
+
+    def join(self, payload):
+        join_data = []
+        for obj in payload:
+            obj['code'] = obj.pop('start_station_code')
+            data = super(JoinByYearCityStationId, self).join(obj)
+            if data is not None:
+                del data['city']
+                del data['code']
+                join_data.append(data)
+        return join_data
 
     def on_message_callback(self, message_obj, delivery_tag):
         payload = message_obj['payload']
@@ -55,29 +45,19 @@ class JoinByYearCityStationId(Joiner):
             return
         if payload == 'EOF':
             return
-        join_data = []
-        for obj in payload:
-            obj['code'] = obj.pop('start_station_code')
-            data = self.join(obj)
-            if data is not None:
-                del data['city']
-                del data['code']
-                join_data.append(data)
+        join_data = self.join(payload)
         if join_data:
             hashes = self.hash_message(message=join_data, hashing_key='name', hash_modulo=self._consumers)
             for routing_key_suffix, obj in hashes.items():
-                self._output_exchange.publish(json.dumps({'payload': obj}),
-                                              routing_key=AGGREGATE_TRIP_COUNT_ROUTING_KEY(routing_key_suffix))
+                self._middleware.send_aggregate_message(json.dumps({'payload': obj}), routing_key_suffix)
 
     def on_producer_finished(self, message, delivery_tag):
         if message['type'] == 'stations':
-            self._stations_input_queue.cancel()
-            self._output_exchange.publish(json.dumps({'type': 'notify', 'payload': 'ack'}),
-                                          routing_key=STATIC_DATA_ACK_ROUTING_KEY)
+            self._middleware.cancel_consuming_stations()
+            self._middleware.send_static_data_ack(json.dumps({'type': 'notify', 'payload': 'ack'}))
             logging.info(f'action: on-producer-finished | len-keys: {len(self._side_table.keys())}')
         if message['type'] == 'trips':
             logging.info('received EOS')
             for i in range(self._consumers):
-                self._output_exchange.publish(json.dumps({'payload': 'EOF'}),
-                                              routing_key=AGGREGATE_TRIP_COUNT_ROUTING_KEY(i))
-            self.close()
+                self._middleware.send_aggregate_message(json.dumps({'payload': 'EOF'}), i)
+            self._middleware.stop()
