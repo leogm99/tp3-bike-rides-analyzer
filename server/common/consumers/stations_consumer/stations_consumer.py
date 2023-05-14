@@ -59,3 +59,7 @@ class StationsConsumer(DAGNode):
     def __send_message_to_joiner_by_year_city_station_id(self, message: Union[str, Dict]):
         self._middleware.send_joiner_message(message)
 
+    def close(self):
+        if not self.closed:
+            super(StationsConsumer, self).close()
+            self._middleware.stop()

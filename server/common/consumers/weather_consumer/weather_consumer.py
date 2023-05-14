@@ -38,3 +38,8 @@ class WeatherConsumer(DAGNode):
     @message_from_payload_decorator(message_type='weather')
     def __send_message_to_filter_by_precipitation(self, message: Union[str, Dict]):
         self._middleware.send_to_filter(message)
+
+    def close(self):
+        if not self.closed:
+            super(WeatherConsumer, self).close()
+            self._middleware.stop()

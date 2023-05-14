@@ -60,3 +60,8 @@ class HaversineApplier(Applier):
         start = float(message[self._start_latitude_key]), float(message[self._start_longitude_key])
         end = float(message[self._end_latitude_key]), float(message[self._end_longitude_key])
         return haversine(start, end)
+
+    def close(self):
+        if not self.closed:
+            super(HaversineApplier, self).close()
+            self._middleware.stop()

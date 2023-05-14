@@ -70,3 +70,8 @@ class JoinByDate(Joiner):
             for i in range(self._consumers):
                 self._middleware.send_aggregator_message(json.dumps({'payload': 'EOF'}), i)
             self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(JoinByDate, self).close()
+            self._middleware.stop()

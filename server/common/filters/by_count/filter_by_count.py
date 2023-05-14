@@ -39,3 +39,8 @@ class FilterByCount(NumericRange):
     def on_producer_finished(self, message, delivery_tag):
         self._middleware.send_metrics_message(json.dumps({'type': 'count_metric', 'payload': 'EOF'}))
         self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(FilterByCount, self).close()
+            self._middleware.stop()

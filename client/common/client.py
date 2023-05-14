@@ -62,7 +62,11 @@ class Client:
         logging.info(f'action: receive-message | message: {message}')
         # reuse the same functions but avoid having to lock with just one process...
         self.__send_csv_data(files_paths_by_city_and_type, 'trips', lambda payload: self._socket.sendall(payload))
-        metrics = receive_string_message(recv_n_bytes, self._socket, 4)
+        try:
+            metrics = receive_string_message(recv_n_bytes, self._socket, 4)
+        except BrokenPipeError:
+            logging.info('action: receive | status: Connection closed by remote end')
+            return
         metrics = json.loads(metrics)
         self.save_metrics(metrics)
         self.stop()

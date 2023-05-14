@@ -59,3 +59,8 @@ class TripsConsumer(DAGNode):
     @message_from_payload_decorator(message_type='trips')
     def __send_message_to_joiner_by_date(self, message: str):
         self._middleware.send_joiner_message(message)
+
+    def close(self):
+        if not self.closed:
+            super(TripsConsumer, self).close()
+            self._middleware.stop()

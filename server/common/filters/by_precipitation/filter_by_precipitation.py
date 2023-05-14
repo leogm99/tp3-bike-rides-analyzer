@@ -37,3 +37,8 @@ class FilterByPrecipitation(NumericRange):
         for _ in range(self._weather_consumers):
             self._middleware.send_joiner_message(json.dumps(eof))
         self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(FilterByPrecipitation, self).close()
+            self._middleware.stop()

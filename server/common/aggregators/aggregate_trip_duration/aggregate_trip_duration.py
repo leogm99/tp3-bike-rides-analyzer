@@ -37,3 +37,8 @@ class AggregateTripDuration(RollingAverageAggregator):
             self._middleware.send_metrics_message(json.dumps(message))
         self._middleware.send_metrics_message(json.dumps({'type': 'duration_metric', 'payload': 'EOF'}))
         self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(AggregateTripDuration, self).close()
+            self._middleware.stop()

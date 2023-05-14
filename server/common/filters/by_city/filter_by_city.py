@@ -60,3 +60,8 @@ class FilterByCity(StringEquality):
             for _ in range(self._trips_consumers):
                 self.__send_trips_message('EOF')
             self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(FilterByCity, self).close()
+            self._middleware.stop()

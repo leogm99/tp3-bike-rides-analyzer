@@ -37,3 +37,10 @@ class AggregateTripDistance(RollingAverageAggregator):
         for _ in range(self._consumers):
             self._middleware.send_filter_message(json.dumps({'payload': 'EOF'}))
         self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(AggregateTripDistance, self).close()
+            self._middleware.stop()
+
+

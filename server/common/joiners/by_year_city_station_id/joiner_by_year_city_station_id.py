@@ -61,3 +61,8 @@ class JoinByYearCityStationId(Joiner):
             for i in range(self._consumers):
                 self._middleware.send_aggregate_message(json.dumps({'payload': 'EOF'}), i)
             self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(JoinByYearCityStationId, self).close()
+            self._middleware.stop()

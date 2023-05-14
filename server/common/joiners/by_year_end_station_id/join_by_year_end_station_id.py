@@ -75,3 +75,8 @@ class JoinByYearEndStationId(Joiner):
             for _ in range(self._consumers):
                 self._middleware.send_haversine_message(json.dumps({'payload': 'EOF'}))
             self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(JoinByYearEndStationId, self).close()
+            self._middleware.stop()

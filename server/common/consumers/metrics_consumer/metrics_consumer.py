@@ -31,3 +31,8 @@ class MetricsConsumer(DAGNode):
         self._middleware.send_metrics_message(json.dumps(self._metrics))
         self._middleware.stop()
 
+    def close(self):
+        if not self.closed:
+            super(MetricsConsumer, self).close()
+            self._middleware.stop()
+

@@ -33,3 +33,8 @@ class FilterByDistance(NumericRange):
     def on_producer_finished(self, message, delivery_tag):
         self._middleware.send_metrics_message(json.dumps({'type': 'distance_metric', 'payload': 'EOF'}))
         self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(FilterByDistance, self).close()
+            self._middleware.stop()

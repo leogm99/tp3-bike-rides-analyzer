@@ -5,6 +5,8 @@ from common.aggregators.aggregate_trip_count.aggregate_trip_count_middleware imp
 from common.aggregators.count_aggregator.count_aggregator import CountAggregator
 from typing import Tuple
 
+from common.dag_node import DAGNode
+
 
 class AggregateTripCount(CountAggregator):
     def __init__(self,
@@ -45,3 +47,8 @@ class AggregateTripCount(CountAggregator):
         for _ in range(self._consumers):
             self._middleware.send_filter_message(json.dumps({'payload': 'EOF'}))
         self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(AggregateTripCount, self).close()
+            self._middleware.stop()

@@ -38,3 +38,8 @@ class FilterByYear(NumericRange):
         for _ in range(self._consumers):
             self._middleware.send_joiner_message(json.dumps({'type': 'trips', 'payload': 'EOF'}))
         self._middleware.stop()
+
+    def close(self):
+        if not self.closed:
+            super(FilterByYear, self).close()
+            self._middleware.stop()
