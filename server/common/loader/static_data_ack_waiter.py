@@ -1,4 +1,3 @@
-import logging
 from threading import Thread
 
 from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
@@ -24,7 +23,6 @@ class StaticDataAckWaiter(Thread):
 
     def ack_receiver(self, _message, _delivery_tag):
         self._ack_count += 1
-        logging.info(f'got {self._ack_count} acks')
         if self._needed_ack == self._ack_count:
             self.close()
 

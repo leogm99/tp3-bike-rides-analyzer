@@ -1,15 +1,15 @@
 import logging
-import json
 
 from haversine import haversine
 
 from common.appliers.applier import Applier
 from common.appliers.haversine_applier.haversine_applier_middleware import HaversineApplierMiddleware
-from common.utils import select_message_fields_decorator
+from common_utils.protocol.message import Message, NULL_TYPE
+from common_utils.protocol.protocol import Protocol
 
 
 class HaversineApplier(Applier):
-    output_fields = ['end_station_name', 'distance']
+    output_fields = {'end_station_name', 'distance'}
 
     def __init__(self,
                  start_latitude_key: str,
@@ -36,29 +36,35 @@ class HaversineApplier(Applier):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def on_message_callback(self, message, delivery_tag):
-        payload = message['payload']
-        for obj in payload:
+    def on_message_callback(self, message: Message, delivery_tag):
+        new_payload = []
+        for obj in message.payload:
             distance_calculated = self.apply(obj)
-            obj['distance'] = distance_calculated
-        self.__send_message(payload)
+            obj.data['distance'] = distance_calculated
+            obj.pick_payload_fields(self.output_fields)
+            new_payload.append(obj)
+        msg = Message(message_type=NULL_TYPE, payload=new_payload)
+        self.__send_message(msg)
 
     def on_producer_finished(self, message, delivery_tag):
+        eof = Message.build_eof_message()
+        raw_eof = Protocol.serialize_message(eof)
         for i in range(self._consumers):
             self._middleware.send_aggregator_message(
-                json.dumps({'payload': 'EOF'}), i
+                raw_eof, i
             )
         self._middleware.stop()
 
-    @select_message_fields_decorator(fields=output_fields)
-    def __send_message(self, message):
-        hashes = self.hash_message(message, hashing_key='end_station_name', hash_modulo=self._consumers)
+    def __send_message(self, message: Message):
+        hashes = self.hash_message(message.payload, hashing_key='end_station_name', hash_modulo=self._consumers)
         for routing_key, buffer in hashes.items():
-            self._middleware.send_aggregator_message(json.dumps({'payload': buffer}), routing_key)
+            msg = Message(message_type=NULL_TYPE, payload=buffer)
+            raw_msg = Protocol.serialize_message(msg)
+            self._middleware.send_aggregator_message(raw_msg, routing_key)
 
-    def apply(self, message):
-        start = float(message[self._start_latitude_key]), float(message[self._start_longitude_key])
-        end = float(message[self._end_latitude_key]), float(message[self._end_longitude_key])
+    def apply(self, payload):
+        start = float(payload.data[self._start_latitude_key]), float(payload.data[self._start_longitude_key])
+        end = float(payload.data[self._end_latitude_key]), float(payload.data[self._end_longitude_key])
         return haversine(start, end)
 
     def close(self):

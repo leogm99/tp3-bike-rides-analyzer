@@ -1,6 +1,5 @@
 import socket
 import logging
-import json
 import queue
 
 from common.loader.loader_middleware import LoaderMiddleware
@@ -10,6 +9,9 @@ from common_utils.utils import receive_string_message, recv_n_bytes, send_string
 from common.dag_node import DAGNode
 from common.loader.static_data_ack_waiter import StaticDataAckWaiter
 from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
+from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS
+from common_utils.protocol.payload import Payload
+from common_utils.protocol.protocol import Protocol
 
 
 class Loader(DAGNode):
@@ -67,8 +69,8 @@ class Loader(DAGNode):
             while not self._weather_eof or not self._stations_eof:
                 self.__receive_client_message_and_publish(self._client_sock)
             self._static_ack_waiter.join()
-            ack = json.dumps({'type': 'ack'})
-            send_string_message(self._client_sock.sendall, ack, 4)
+            ack = Message.build_ack_message()
+            Protocol.send_message(self._client_sock.sendall, ack)
             while not self._trips_eof:
                 self.__receive_client_message_and_publish(self._client_sock)
             logging.info('action: receiving-metrics | status: in progress')
@@ -76,7 +78,7 @@ class Loader(DAGNode):
             logging.info('action: receiving-metrics | status: success')
             self._metrics_waiter.join()
             logging.info('action: sending metrics to client | status: in progress')
-            send_string_message(self._client_sock.sendall, json.dumps(metrics_obj), 4)
+            Protocol.send_message(self._client_sock.sendall, metrics_obj)
             self.close()
         except BrokenPipeError:
             logging.info('action: receive_client_message | connection closed by client')
@@ -91,36 +93,36 @@ class Loader(DAGNode):
         raise NotImplementedError
 
     def on_eof_threshold_reached(self, eof_type: str):
-        if eof_type == 'stations':
+        if eof_type == STATIONS:
             replica_count = self._stations_consumer_replica_count
             send = self._middleware.send_stations
             self._stations_eof = True
-        elif eof_type == 'weather':
+        elif eof_type == WEATHER:
             replica_count = self._weather_consumer_replica_count
             send = self._middleware.send_weather
             self._weather_eof = True
-        elif eof_type == 'trips':
+        elif eof_type == TRIPS:
             replica_count = self._trips_consumer_replica_count
             send = self._middleware.send_trips
             self._trips_eof = True
         else:
             raise ValueError("Invalid type of data received")
-        eof = {'type': eof_type, 'payload': 'EOF'}
+        eof = Message.build_eof_message()
         for _ in range(replica_count):
-            send(json.dumps(eof))
+            send(Protocol.serialize_message(eof))
 
     def __receive_client_message_and_publish(self, client_socket):
-        message = receive_string_message(recv_n_bytes, client_socket, 4)
-        json_message = json.loads(message)
-        if json_message['payload'] == 'EOF':
-            self.on_eof_threshold_reached(json_message['type'])
+        message = Protocol.receive_message(lambda n: recv_n_bytes(client_socket, n))
+        if message.is_eof():
+            self.on_eof_threshold_reached(message.message_type)
         else:
-            if json_message['type'] == 'trips':
-                self._middleware.send_trips(message)
-            elif json_message['type'] == 'stations':
-                self._middleware.send_stations(message)
-            elif json_message['type'] == 'weather':
-                self._middleware.send_weather(message)
+            raw_message = Protocol.serialize_message(message)
+            if message.is_type(TRIPS):
+                self._middleware.send_trips(raw_message)
+            elif message.is_type(STATIONS):
+                self._middleware.send_stations(raw_message)
+            elif message.is_type(WEATHER):
+                self._middleware.send_weather(raw_message)
             else:
                 raise ValueError("Invalid type of data received")
 

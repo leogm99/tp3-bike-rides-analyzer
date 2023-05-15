@@ -11,6 +11,6 @@ class CountAggregator(Aggregator, ABC):
         self._aggregate_keys = aggregate_keys
 
     def aggregate(self, payload, **kwargs):
-        key = tuple(payload[i] for i in self._aggregate_keys)
+        key = tuple(payload.data[i] for i in self._aggregate_keys)
         self._aggregate_table[key].update(**kwargs)
 

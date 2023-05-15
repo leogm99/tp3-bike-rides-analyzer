@@ -1,8 +1,9 @@
-import json
 import logging
 
 from common.filters.by_distance.filter_by_distance_middleware import FilterByDistanceMiddleware
 from common.filters.numeric_range.numeric_range import NumericRange
+from common_utils.protocol.message import Message, DISTANCE_METRIC
+from common_utils.protocol.protocol import Protocol
 
 
 class FilterByDistance(NumericRange):
@@ -24,14 +25,18 @@ class FilterByDistance(NumericRange):
             logging.info('action: run | status: success')
 
     def on_message_callback(self, message, _delivery_tag):
-        if message['payload'] == 'EOF':
+        if message.is_eof():
             return
         to_send, message_obj = super(FilterByDistance, self).on_message_callback(message, _delivery_tag)
         if to_send:
-            self._middleware.send_metrics_message(json.dumps(message_obj))
+            message_obj.message_type = DISTANCE_METRIC
+            raw_msg = Protocol.serialize_message(message_obj)
+            self._middleware.send_metrics_message(raw_msg)
 
     def on_producer_finished(self, message, delivery_tag):
-        self._middleware.send_metrics_message(json.dumps({'type': 'distance_metric', 'payload': 'EOF'}))
+        eof = Message.build_eof_message(message_type=DISTANCE_METRIC)
+        raw_eof = Protocol.serialize_message(eof)
+        self._middleware.send_metrics_message(raw_eof)
         self._middleware.stop()
 
     def close(self):

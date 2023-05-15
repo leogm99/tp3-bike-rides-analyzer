@@ -1,9 +1,12 @@
-import json
 import logging
 
 from common.consumers.metrics_consumer.metrics_consumer_middleware import MetricsConsumerMiddleware
 from common.dag_node import DAGNode
 from collections import defaultdict
+
+from common_utils.protocol.message import Message, METRICS
+from common_utils.protocol.payload import Payload
+from common_utils.protocol.protocol import Protocol
 
 
 class MetricsConsumer(DAGNode):
@@ -23,12 +26,14 @@ class MetricsConsumer(DAGNode):
             logging.info('action: run | status: success')
 
     def on_message_callback(self, message, delivery_tag):
-        if message['payload'] == 'EOF':
+        if message.is_eof():
             return
-        self._metrics[message['type']].append(message['payload'])
+        self._metrics[message.message_type].append(message.payload.data)
 
     def on_producer_finished(self, message, delivery_tag):
-        self._middleware.send_metrics_message(json.dumps(self._metrics))
+        metrics = Message(message_type=METRICS, payload=Payload(data=self._metrics))
+        raw_metrics = Protocol.serialize_message(metrics)
+        self._middleware.send_metrics_message(raw_metrics)
         self._middleware.stop()
 
     def close(self):

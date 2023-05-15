@@ -7,7 +7,11 @@ from multiprocessing import Process, Lock
 from common.utils import get_file_paths_by_city_and_type
 from typing import Dict
 from common_utils.utils import send_string_message, receive_string_message, recv_n_bytes
+from common_utils.protocol.protocol import Protocol
+from common_utils.protocol.payload import Payload
+from common_utils.protocol.message import Message
 from time import sleep
+
 
 BATCH_SIZE = 500
 
@@ -51,23 +55,21 @@ class Client:
         stations_sender.join()
         if (weather_sender.exitcode != 0) or (stations_sender.exitcode != 0):
             if self.closed:
-                logging.info('action: close | status: sucess | gracefully quitting')
+                logging.info('action: close | status: success | gracefully quitting')
                 return
         logging.debug(f'action: sending_static_data | status: success')
-        message = receive_string_message(recv_n_bytes, self._socket, 4)
-        ack = json.loads(message)
-        if ack['type'] != 'ack':
+        message = Protocol.receive_message(self.__recv_all)
+        if not message.is_type('notify') and not message.payload.data == 'ACK':
             self.stop()
             return
         logging.info(f'action: receive-message | message: {message}')
         # reuse the same functions but avoid having to lock with just one process...
         self.__send_csv_data(files_paths_by_city_and_type, 'trips', lambda payload: self._socket.sendall(payload))
         try:
-            metrics = receive_string_message(recv_n_bytes, self._socket, 4)
+            metrics = Protocol.receive_message(self.__recv_all)
         except BrokenPipeError:
             logging.info('action: receive | status: Connection closed by remote end')
             return
-        metrics = json.loads(metrics)
         self.save_metrics(metrics)
         self.stop()
 
@@ -76,40 +78,44 @@ class Client:
                         data_type: str,
                         send_callback):
         try:
-            send_buffer = [None] * BATCH_SIZE
-            current_packet = 0
-            read_lines = 0
             for city, city_paths in paths_by_city_and_type.items():
                 data_path = city_paths[data_type]
                 with open(data_path, newline='') as source:
                     reader = csv.DictReader(f=source)
-                    for row in reader:
-                        read_lines += 1
-                        row['city'] = city
-                        send_buffer[current_packet] = row
-                        current_packet += 1
-                        if current_packet == BATCH_SIZE:
-                            message = {'type': data_type, 'payload': send_buffer}
-                            json_message = json.dumps(message)
-                            # throttle
-                            sleep(0.001)
-                            send_string_message(send_callback, json_message, 4)
-                            current_packet = 0
-                    if current_packet != 0:
-                        message = {'type': data_type, 'payload': send_buffer[:current_packet]}
-                        json_message = json.dumps(message)
-                        send_string_message(send_callback, json_message, 4)
-            eof_data = {'type': data_type, 'payload': 'EOF'}
-            json_eof_data = json.dumps(eof_data)
-            send_string_message(send_callback, json_eof_data, 4)
-            logging.info(f'read_lines: {read_lines}')
-        except BaseException as e:
+                    Client.read_and_send_batched(reader, city, data_type, send_callback)
+            Client.send_eof(data_type, send_callback)
+        except BaseException:
             return
+
+    @staticmethod
+    def send_eof(data_type, send_callback):
+        eof_data = {'type': data_type, 'payload': 'EOF'}
+        json_eof_data = json.dumps(eof_data)
+        send_string_message(send_callback, json_eof_data, 4)
+
+    @staticmethod
+    def read_and_send_batched(reader, city, data_type, send_callback, batch_size=BATCH_SIZE):
+        send_buffer = []
+        for row in reader:
+            row['city'] = city
+            send_buffer.append(Payload(data=row))
+            if len(send_buffer) == batch_size:
+                msg = Message(message_type=data_type, payload=send_buffer)
+                # throttle
+                sleep(0.001)
+                Protocol.send_message(send_callback, msg)
+                send_buffer = []
+        if len(send_buffer) != 0:
+            msg = Message(message_type=data_type, payload=send_buffer)
+            Protocol.send_message(send_callback, msg)
 
     def __send_all_process_safe(self, payload):
         """Process safe send_all"""
         with self._rwlock:
             self._socket.sendall(payload)
+
+    def __recv_all(self, n):
+        return recv_n_bytes(self._socket, n)
 
     def stop(self):
         logging.info('action: stop | status: in progress')
@@ -118,7 +124,7 @@ class Client:
         self._socket.close()
 
     def save_metrics(self, metrics):
-        for k, v in metrics.items():
+        for k, v in metrics.payload.data.items():
             with open(f'{self._output_path}/{k}.csv', 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(v[0].keys())

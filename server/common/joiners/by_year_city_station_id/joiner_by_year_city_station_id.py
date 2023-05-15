@@ -5,6 +5,8 @@ from typing import Tuple
 from common.joiners.by_year_city_station_id.joiner_by_year_city_station_id_middleware import \
     JoinByYearCityStationIdMiddleware
 from common.joiners.joiner import Joiner
+from common_utils.protocol.message import Message, TRIPS, STATIONS, NULL_TYPE
+from common_utils.protocol.protocol import Protocol
 
 
 class JoinByYearCityStationId(Joiner):
@@ -27,39 +29,41 @@ class JoinByYearCityStationId(Joiner):
             logging.info('action: run | status: success')
 
     def join(self, payload):
-        join_data = []
+        buffer = []
         for obj in payload:
-            obj['code'] = obj.pop('start_station_code')
-            data = super(JoinByYearCityStationId, self).join(obj)
-            if data is not None:
-                del data['city']
-                del data['code']
-                join_data.append(data)
-        return join_data
+            obj.data['code'] = obj.data.pop('start_station_code')
+            join_data = super(JoinByYearCityStationId, self).join(obj)
+            if join_data is not None:
+                del join_data.data['city']
+                del join_data.data['code']
+                buffer.append(join_data)
+        return buffer
 
-    def on_message_callback(self, message_obj, delivery_tag):
-        payload = message_obj['payload']
-        if message_obj['type'] == 'stations':
-            if message_obj['payload'] != 'EOF':
-                self.insert_into_side_table(payload)
+    def on_message_callback(self, message_obj: Message, delivery_tag):
+        if message_obj.is_eof():
             return
-        if payload == 'EOF':
+        if message_obj.is_type(STATIONS):
+            self.insert_into_side_table(message_obj.payload)
             return
-        join_data = self.join(payload)
+        join_data = self.join(message_obj.payload)
         if join_data:
             hashes = self.hash_message(message=join_data, hashing_key='name', hash_modulo=self._consumers)
             for routing_key_suffix, obj in hashes.items():
-                self._middleware.send_aggregate_message(json.dumps({'payload': obj}), routing_key_suffix)
+                msg = Message(message_type=NULL_TYPE, payload=obj)
+                raw_msg = Protocol.serialize_message(msg)
+                self._middleware.send_aggregate_message(raw_msg, routing_key_suffix)
 
     def on_producer_finished(self, message, delivery_tag):
-        if message['type'] == 'stations':
+        if message.is_type(STATIONS):
             self._middleware.cancel_consuming_stations()
-            self._middleware.send_static_data_ack(json.dumps({'type': 'notify', 'payload': 'ack'}))
+            ack = Protocol.serialize_message(Message.build_ack_message())
+            self._middleware.send_static_data_ack(ack)
             logging.info(f'action: on-producer-finished | len-keys: {len(self._side_table.keys())}')
-        if message['type'] == 'trips':
-            logging.info('received EOS')
+        if message.is_type(TRIPS):
+            eof = Message.build_eof_message()
+            raw_eof = Protocol.serialize_message(eof)
             for i in range(self._consumers):
-                self._middleware.send_aggregate_message(json.dumps({'payload': 'EOF'}), i)
+                self._middleware.send_aggregate_message(raw_eof, i)
             self._middleware.stop()
 
     def close(self):

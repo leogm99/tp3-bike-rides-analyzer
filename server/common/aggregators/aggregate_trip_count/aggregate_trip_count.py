@@ -1,11 +1,12 @@
-import json
 import logging
 
 from common.aggregators.aggregate_trip_count.aggregate_trip_count_middleware import AggregateTripCountMiddleware
 from common.aggregators.count_aggregator.count_aggregator import CountAggregator
 from typing import Tuple
 
-from common.dag_node import DAGNode
+from common_utils.protocol.payload import Payload
+from common_utils.protocol.message import Message, NULL_TYPE
+from common_utils.protocol.protocol import Protocol
 
 
 class AggregateTripCount(CountAggregator):
@@ -27,25 +28,27 @@ class AggregateTripCount(CountAggregator):
             logging.info('action: run | status: success')
 
     def on_message_callback(self, message, delivery_tag):
-        payload = message['payload']
-        if isinstance(payload, list):
-            for obj in payload:
-                try:
-                    year = int(obj['yearid'])
-                except ValueError as e:
-                    logging.error(f'action: on-message-callback | data-error: {e}')
-                    continue
-                if year == 2016:
-                    self.aggregate(payload=obj, year_2016=1, year_2017=0)
-                elif year == 2017:
-                    self.aggregate(payload=obj, year_2016=0, year_2017=1)
+        for obj in message.payload:
+            try:
+                year = int(obj.data['yearid'])
+            except ValueError as e:
+                logging.error(f'action: on-message-callback | data-error: {e}')
+                raise e from e
+            if year == 2016:
+                self.aggregate(payload=obj, year_2016=1, year_2017=0)
+            elif year == 2017:
+                self.aggregate(payload=obj, year_2016=0, year_2017=1)
 
     def on_producer_finished(self, message, delivery_tag):
         for k, v in self._aggregate_table.items():
-            message = {'payload': {'station': k, 'year_2016': v['year_2016'], 'year_2017': v['year_2017']}}
-            self._middleware.send_filter_message(json.dumps(message))
+            payload = Payload(data={'station': k, 'year_2016': v['year_2016'], 'year_2017': v['year_2017']})
+            msg = Message(message_type=NULL_TYPE, payload=payload)
+            raw_msg = Protocol.serialize_message(msg)
+            self._middleware.send_filter_message(raw_msg)
+        eof = Message.build_eof_message()
+        raw_eof = Protocol.serialize_message(eof)
         for _ in range(self._consumers):
-            self._middleware.send_filter_message(json.dumps({'payload': 'EOF'}))
+            self._middleware.send_filter_message(raw_eof)
         self._middleware.stop()
 
     def close(self):

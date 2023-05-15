@@ -2,20 +2,13 @@ import logging
 
 from common.consumers.stations_consumer.stations_consumer_middleware import StationsConsumerMiddleware
 from common.dag_node import DAGNode
-from common.utils import select_message_fields_decorator, message_from_payload_decorator
-from typing import Dict, Union
-
-DATA_EXCHANGE = 'data'
-DATA_EXCHANGE_TYPE = 'direct'
-STATIONS_QUEUE_NAME = 'stations'
-JOINER_BY_YEAR_CITY_STATION_ID_EXCHANGE = 'join_by_year_city_station_id_stations'
-JOINER_BY_YEAR_CITY_STATION_ID_EXCHANGE_TYPE = 'fanout'
-FILTER_BY_CITY_ROUTING_KEY = 'filter_by_city_stations'
+from common_utils.protocol.message import Message, STATIONS
+from common_utils.protocol.protocol import Protocol
 
 
 class StationsConsumer(DAGNode):
-    filter_by_city_fields = ['code', 'yearid', 'city', 'name', 'latitude', 'longitude']
-    joiner_by_year_city_station_id_fields = ['code', 'city', 'yearid', 'name']
+    filter_by_city_fields = {'code', 'yearid', 'city', 'name', 'latitude', 'longitude'}
+    joiner_by_year_city_station_id_fields = {'code', 'city', 'yearid', 'name'}
 
     def __init__(self, filter_by_city_consumers: int = 1,
                  middleware: StationsConsumerMiddleware = None):
@@ -35,29 +28,30 @@ class StationsConsumer(DAGNode):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def on_message_callback(self, message_obj, _delivery_tag):
-        payload = message_obj['payload']
-        if payload == 'EOF':
-            logging.info('eof received')
+    def on_message_callback(self, message_obj: Message, _delivery_tag):
+        if message_obj.is_eof():
             return
-        self.__send_message_to_filter_by_city(payload)
-        self.__send_message_to_joiner_by_year_city_station_id(payload)
+        filter_by_city_message = message_obj.pick_payload_fields(self.filter_by_city_fields)
+        joiner_by_year_city_station_id_message = message_obj.pick_payload_fields(
+            self.joiner_by_year_city_station_id_fields)
+        self.__send_message_to_filter_by_city(filter_by_city_message)
+        self.__send_message_to_joiner_by_year_city_station_id(joiner_by_year_city_station_id_message)
 
     def on_producer_finished(self, _message, delivery_tag):
+        logging.info('received eof')
+        eof = Message.build_eof_message(message_type=STATIONS)
         for _ in range(self._filter_consumers):
-            self.__send_message_to_filter_by_city('EOF')
-        self.__send_message_to_joiner_by_year_city_station_id('EOF')
+            self.__send_message_to_filter_by_city(eof)
+        self.__send_message_to_joiner_by_year_city_station_id(eof)
         self._middleware.stop()
 
-    @select_message_fields_decorator(fields=filter_by_city_fields)
-    @message_from_payload_decorator(message_type='stations')
-    def __send_message_to_filter_by_city(self, message: Union[str, Dict]):
-        self._middleware.send_filter_message(message)
+    def __send_message_to_filter_by_city(self, message: Message):
+        raw_message = Protocol.serialize_message(message)
+        self._middleware.send_filter_message(raw_message)
 
-    @select_message_fields_decorator(fields=joiner_by_year_city_station_id_fields)
-    @message_from_payload_decorator(message_type='stations')
-    def __send_message_to_joiner_by_year_city_station_id(self, message: Union[str, Dict]):
-        self._middleware.send_joiner_message(message)
+    def __send_message_to_joiner_by_year_city_station_id(self, message: Message):
+        raw_message = Protocol.serialize_message(message)
+        self._middleware.send_joiner_message(raw_message)
 
     def close(self):
         if not self.closed:

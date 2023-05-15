@@ -1,8 +1,9 @@
 import abc
-import json
 
 from common.dag_node import DAGNode
 from typing import Any, Dict
+
+from common_utils.protocol.message import Message
 
 
 class Filter(DAGNode):
@@ -16,20 +17,17 @@ class Filter(DAGNode):
     def filter_function(self, message_object: Dict[str, Any]):
         pass
 
-    def on_message_callback(self, message_obj, delivery_tag):
-        payload = message_obj['payload']
-        if payload != 'EOF':
-            if isinstance(payload, list):
-                buffer = []
-                for o in payload:
-                    to_send = self.__process_message_and_filter(o)
+    def on_message_callback(self, message_obj: Message, delivery_tag):
+        if not message_obj.is_eof():
+            buffer = []
+            if isinstance(message_obj.payload, list):
+                for o in message_obj.payload:
+                    to_send = self.__process_message_and_filter(o.data)
                     if to_send:
                         buffer.append(o)
-                message_obj['payload'] = buffer
+                message_obj.payload = buffer
                 return len(buffer) != 0, message_obj
-            to_send = self.__process_message_and_filter(payload)
-            message_obj['payload'] = payload
-            return to_send, message_obj
+            return self.__process_message_and_filter(message_obj.payload.data), message_obj
         return False, None
 
     def __process_message_and_filter(self, payload):

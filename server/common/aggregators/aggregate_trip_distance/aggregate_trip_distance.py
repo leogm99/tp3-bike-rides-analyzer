@@ -1,9 +1,13 @@
-import json
+import logging
 from typing import Tuple
 
 from common.aggregators.aggregate_trip_distance.aggregate_trip_distance_middleware import \
     AggregateTripDistanceMiddleware
 from common.aggregators.rolling_average_aggregator.rolling_average_aggregator import RollingAverageAggregator
+
+from common_utils.protocol.payload import Payload
+from common_utils.protocol.message import Message, DISTANCE_METRIC
+from common_utils.protocol.protocol import Protocol
 
 
 class AggregateTripDistance(RollingAverageAggregator):
@@ -25,17 +29,19 @@ class AggregateTripDistance(RollingAverageAggregator):
                 raise e from e
 
     def on_message_callback(self, message, delivery_tag):
-        payload = message['payload']
-        if isinstance(payload, list):
-            for obj in payload:
-                self.aggregate(payload=obj)
+        for obj in message.payload:
+            self.aggregate(payload=obj)
 
     def on_producer_finished(self, message, delivery_tag):
         for k, v in self._aggregate_table.items():
-            message = {'type': 'distance_metric', 'payload': {'station': k, 'distance': v.current_average}}
-            self._middleware.send_filter_message(json.dumps(message))
+            payload = Payload(data={'station': k, 'distance': v.current_average})
+            msg = Message(message_type=DISTANCE_METRIC, payload=payload)
+            raw_msg = Protocol.serialize_message(msg)
+            self._middleware.send_filter_message(raw_msg)
+        eof = Message.build_eof_message(message_type=DISTANCE_METRIC)
+        raw_eof = Protocol.serialize_message(eof)
         for _ in range(self._consumers):
-            self._middleware.send_filter_message(json.dumps({'payload': 'EOF'}))
+            self._middleware.send_filter_message(raw_eof)
         self._middleware.stop()
 
     def close(self):

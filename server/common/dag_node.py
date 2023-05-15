@@ -34,7 +34,7 @@ class DAGNode(abc.ABC):
         if isinstance(message, list):
             buffers_hash = {k: [] for k in range(hash_modulo)}
             for obj in message:
-                buffers_hash[int(md5(obj[hashing_key].encode()).hexdigest(), 16) % hash_modulo].append(obj)
+                buffers_hash[int(md5(obj.data[hashing_key].encode()).hexdigest(), 16) % hash_modulo].append(obj)
             return buffers_hash
         else:
-            return int(md5(message[hashing_key].encode()).hexdigest(), 16) % hash_modulo
+            return int(md5(message.data[hashing_key].encode()).hexdigest(), 16) % hash_modulo

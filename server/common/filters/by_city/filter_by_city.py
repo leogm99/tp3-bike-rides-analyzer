@@ -2,12 +2,13 @@ import logging
 
 from common.filters.by_city.filter_by_city_middleware import FilterByCityMiddleware
 from common.filters.string_equality.string_equality import StringEquality
-from common.utils import select_message_fields_decorator, message_from_payload_decorator
+from common_utils.protocol.message import Message, TRIPS, STATIONS
+from common_utils.protocol.protocol import Protocol
 
 
 class FilterByCity(StringEquality):
-    stations_output_fields = ['code', 'yearid', 'name', 'latitude', 'longitude']
-    trips_output_fields = ['start_station_code', 'end_station_code', 'yearid']
+    stations_output_fields = {'code', 'yearid', 'name', 'latitude', 'longitude'}
+    trips_output_fields = {'start_station_code', 'end_station_code', 'yearid'}
 
     def __init__(self,
                  filter_key: str,
@@ -32,33 +33,34 @@ class FilterByCity(StringEquality):
             logging.info('action: run | status: success')
 
     def on_message_callback(self, message, _delivery_tag):
-        if message['payload'] == 'EOF':
+        if message.is_eof():
             return
         to_send, message_obj = super(FilterByCity, self).on_message_callback(message, _delivery_tag)
         if to_send:
-            if message['type'] == 'stations':
-                self.__send_stations_message(message_obj['payload'])
-            elif message['type'] == 'trips':
-                self.__send_trips_message(message_obj['payload'])
+            if message.is_type(STATIONS):
+                message_obj = message_obj.pick_payload_fields(self.stations_output_fields)
+                self.__send_stations_message(message_obj)
+            elif message.is_type(TRIPS):
+                message_obj = message_obj.pick_payload_fields(self.trips_output_fields)
+                self.__send_trips_message(message_obj)
 
-    @select_message_fields_decorator(fields=stations_output_fields)
-    @message_from_payload_decorator(message_type='stations')
     def __send_stations_message(self, message):
-        self._middleware.send_stations_message(message)
+        raw_message = Protocol.serialize_message(message)
+        self._middleware.send_stations_message(raw_message)
 
-    @select_message_fields_decorator(fields=trips_output_fields)
-    @message_from_payload_decorator(message_type='trips')
     def __send_trips_message(self, message):
-        self._middleware.send_trips_message(message)
+        raw_message = Protocol.serialize_message(message)
+        self._middleware.send_trips_message(raw_message)
 
     def on_producer_finished(self, message, delivery_tag):
-        if message['type'] == 'stations':
-            logging.info('sending eof to station consumer')
-            self.__send_stations_message('EOF')
+        if message.is_type(STATIONS):
+            stations_eof = Message.build_eof_message(STATIONS)
+            self.__send_stations_message(stations_eof)
             self._middleware.cancel_consuming_stations()
-        elif message['type'] == 'trips':
+        elif message.is_type(TRIPS):
+            trips_eof = Message.build_eof_message(TRIPS)
             for _ in range(self._trips_consumers):
-                self.__send_trips_message('EOF')
+                self.__send_trips_message(trips_eof)
             self._middleware.stop()
 
     def close(self):

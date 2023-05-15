@@ -1,8 +1,9 @@
-import json
 import logging
 
 from common.filters.by_year.filter_by_year_middleware import FilterByYearMiddleware
 from common.filters.numeric_range.numeric_range import NumericRange
+from common_utils.protocol.message import Message, TRIPS
+from common_utils.protocol.protocol import Protocol
 
 
 class FilterByYear(NumericRange):
@@ -27,16 +28,21 @@ class FilterByYear(NumericRange):
             logging.info('action: run | status: success')
 
     def on_message_callback(self, message, _delivery_tag):
-        if message['payload'] == 'EOF':
+        if message.is_eof():
             return
         to_send, message_obj = super(FilterByYear, self).on_message_callback(message, _delivery_tag)
         if to_send:
-            self._middleware.send_joiner_message(json.dumps(message_obj))
+            self.__send_joiner_message(message_obj)
+
+    def __send_joiner_message(self, message: Message):
+        raw_message = Protocol.serialize_message(message)
+        self._middleware.send_joiner_message(raw_message)
 
     def on_producer_finished(self, message, delivery_tag):
         logging.info('action: on-producer-finished | received EOS')
+        eof = Message.build_eof_message(message_type=TRIPS)
         for _ in range(self._consumers):
-            self._middleware.send_joiner_message(json.dumps({'type': 'trips', 'payload': 'EOF'}))
+            self.__send_joiner_message(eof)
         self._middleware.stop()
 
     def close(self):

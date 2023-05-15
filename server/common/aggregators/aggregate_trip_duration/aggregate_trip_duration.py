@@ -1,10 +1,12 @@
-import json
 import logging
 
 from common.aggregators.aggregate_trip_duration.aggregate_trip_duration_middleware import \
     AggregateTripDurationMiddleware
 from common.aggregators.rolling_average_aggregator.rolling_average_aggregator import RollingAverageAggregator
 from typing import Tuple
+from common_utils.protocol.payload import Payload
+from common_utils.protocol.message import Message, DURATION_METRIC
+from common_utils.protocol.protocol import Protocol
 
 
 class AggregateTripDuration(RollingAverageAggregator):
@@ -24,18 +26,20 @@ class AggregateTripDuration(RollingAverageAggregator):
             logging.info('action: run | status: success')
 
     def on_message_callback(self, message, delivery_tag):
-        payload = message['payload']
-        if isinstance(payload, list):
-            for obj in payload:
-                obj['duration_sec'] = max(float(obj['duration_sec']), 0.)
-                super(AggregateTripDuration, self).aggregate(payload=obj)
+        for obj in message.payload:
+            obj.data['duration_sec'] = max(float(obj.data['duration_sec']), 0.)
+            super(AggregateTripDuration, self).aggregate(payload=obj)
 
     def on_producer_finished(self, message, delivery_tag):
         logging.info('action: on-producer-finished | END OF STREAM RECEIVED')
         for k, v in self._aggregate_table.items():
-            message = {'type': 'duration_metric', 'payload': {'date': k, 'duration_sec': v.current_average}}
-            self._middleware.send_metrics_message(json.dumps(message))
-        self._middleware.send_metrics_message(json.dumps({'type': 'duration_metric', 'payload': 'EOF'}))
+            payload = Payload(data={'date': k, 'duration_sec': v.current_average})
+            msg = Message(message_type=DURATION_METRIC, payload=payload)
+            raw_msg = Protocol.serialize_message(msg)
+            self._middleware.send_metrics_message(raw_msg)
+        eof = Message.build_eof_message(message_type=DURATION_METRIC)
+        raw_eof = Protocol.serialize_message(eof)
+        self._middleware.send_metrics_message(raw_eof)
         self._middleware.stop()
 
     def close(self):
