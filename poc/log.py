@@ -1,25 +1,26 @@
 import json
 import os
+import struct
+import tempfile
 from collections import deque
-from typing import Any, Union, List
 from abc import ABC, abstractmethod
 
 ENCODING = 'utf8'
 SET_VALUE_OPCODE = 1
 COMMIT_OPCODE = 2
+SNAPSHOT_OPCODE = 3
 
 class LogEntry(ABC):
-    def __init__(self, code) -> None:
+    def __init__(self) -> None:
         super().__init__()
-        pass
-
-    @abstractmethod
-    def deserialize(string_entry: str):
         pass
 
     @abstractmethod
     def serialize(self):
         pass
+
+    def is_snapshot(self):
+        return False
 
     @staticmethod
     def deserialize_from_opcode(raw_bytes: bytes):
@@ -29,24 +30,25 @@ class LogEntry(ABC):
             LogEntryClass = SetValue
         elif opcode == COMMIT_OPCODE:
             LogEntryClass = Commit
-        return LogEntryClass.deserialize(raw_entry=raw_bytes[1:len(raw_bytes)-1].decode(ENCODING))
-
-
+        elif opcode == SNAPSHOT_OPCODE:
+            LogEntryClass = Snapshot
+        return LogEntryClass.deserialize(raw_bytes[1:len(raw_bytes)-1].decode(ENCODING))
 
 class SetValue(LogEntry):
     def __init__(self, key, value) -> None:
-        super().__init__(code=SET_VALUE_OPCODE)
+        super().__init__()
         self._key = key
         self._value = value
 
     def serialize(self):
-        payload = f"{json.dumps({k: v})}\n".encode(ENCODING)
+        payload = f"{json.dumps({self._key: self._value})}\n".encode(ENCODING)
         buffer = bytearray()
         buffer.append(SET_VALUE_OPCODE)
         buffer.extend(payload)
         return buffer
-    
-    def deserialize(raw_entry: bytes):
+
+    @classmethod 
+    def deserialize(cls, raw_entry: bytes):
         entry = json.loads(raw_entry)
         k, v = entry.popitem()
         return SetValue(key=k, value=v)
@@ -55,71 +57,97 @@ class SetValue(LogEntry):
         return self._key, self._value
     
     def __str__(self) -> str:
-        return f'k: {self._key}, v: {self._value}'
+        k, v = self.into_pair()
+        return f'k: {k}, v: {v}'
     
 
 class Commit(LogEntry):
+    def __init__(self, msg_id) -> None:
+        super().__init__()
+        self._msg_id = msg_id
+    
+    def serialize(self):
+        return struct.pack('!bIc', f'{COMMIT_OPCODE}{self._msg_id}\n')
+    
+    @classmethod
+    def deserialize(cls, raw_bytes: bytes):
+        pass
+
+
+class Snapshot(LogEntry):
     def __init__(self) -> None:
-        super().__init__(code=COMMIT_OPCODE)
+        super().__init__()
+
+    def serialize(self):
+        return struct.pack('b', SNAPSHOT_OPCODE)
     
-    def serialize(self, msg_id):
-        return 
+    @classmethod
+    def deserialize(cls, raw_bytes: bytes):
+        pass
+
+    def is_snapshot(self):
+        return True 
     
-    
-'''
+# https://stackoverflow.com/a/12007885
+class RenamedTemporaryFile(object):
+    """
+    A temporary file object which will be renamed to the specified
+    path on exit.
+    """
+    def __init__(self, final_path, **kwargs):
+        tmpfile_dir = kwargs.pop('dir', None)
 
-    Entries del log:
-    (esto no es asi pero podría ser una forma)
-    <msg_id> <k1:v1> ... <kn: vn>
-    <msg_id> <k1:v1> ... <kn: vn>
+        # Put temporary file in the same directory as the location for the
+        # final file so that an atomic move into place can occur.
 
-    (actualmente es asi):
+        if tmpfile_dir is None:
+            tmpfile_dir = os.path.dirname(final_path)
 
-    (k: v)
-    (k: v)
-    (k: v)
-       .
-       .
-       .
-    commit <msg_id>
+        self.tmpfile = tempfile.NamedTemporaryFile(dir=tmpfile_dir, **kwargs)
+        self.final_path = final_path
 
-    ...
-    Entre commits se encuentran todos los cambios efectuados por el <msg_id>
-    Si no aparece un commit podemos definir a ese mensaje como no procesado y descartar esa parte del log (depende si las operaciones son idempotentes)?
-    En caso que sean idempot. podemos ignorar que falta un commit y rearmar el estado desde alli.
-    Cuando trimmeamos?
+    def __getattr__(self, attr):
+        """
+        Delegate attribute access to the underlying temporary file object.
+        """
+        return getattr(self.tmpfile, attr)
 
-'''
+    def __enter__(self):
+        self.tmpfile.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            self.tmpfile.delete = False
+            result = self.tmpfile.__exit__(exc_type, exc_val, exc_tb)
+            os.rename(self.tmpfile.name, self.final_path)
+        else:
+            result = self.tmpfile.__exit__(exc_type, exc_val, exc_tb)
+        return result
 
 class Log:
     LOG = './log'
-    def __init__(self, maxsize) -> None:
-        self._maxsize = maxsize
-        self._membuf = deque(maxlen=self._maxsize)
-        self._currcount = 0
+    def __init__(self) -> None:
+        self._membuf = deque()
         self._log = open(self.LOG, mode='a+b')
 
     def append(self, entry: LogEntry):
-        self._try_flush()
         self._membuf.append(entry.serialize())
-        self._currcount += 1
+        if entry.is_snapshot():
+            self._force_flush()
 
     def yield_entries(self):
         self._log.seek(os.SEEK_SET)
         for row in self._log:
             yield LogEntry.deserialize_from_opcode(row)
-            
 
-    def _try_flush(self):
-        if self._currcount != self._maxsize:
-            return
-        self._force_flush()
-    
     def _force_flush(self):
         self._log.writelines(self._membuf)
         self._log.flush()
         self._membuf.clear()
-        self._currcount = 0
+
+    def _prune(self):
+        pass
 
     def close(self):
         self._force_flush()
@@ -127,7 +155,7 @@ class Log:
 
 
 class KeyValueStore:
-    SNAPSHOT_FILE_PREFIX = 'snapshot'
+    SNAPSHOT_FILE = 'kv.snapshot'
     def __init__(self, log: Log) -> None:
         self._memtable = {}
         self._log = log
@@ -144,30 +172,65 @@ class KeyValueStore:
         self._memtable = {}
 
     def _restore(self):
+        try:
+            with open(self.SNAPSHOT_FILE, 'r') as sn:
+                self._memtable = json.loads(sn.readlines()[0])
+        except FileNotFoundError:
+            pass
         # TODO: refactor (para distintos tipos de LogEntry)
         for entry in self._log.yield_entries():
             if hasattr(entry, 'into_pair'):
                 k, v = entry.into_pair()
                 self._memtable[k] = v
+        self.take_snapshot()
 
     def take_snapshot(self):
-        with open(self.SNAPSHOT_FILE_PREFIX) as f:
-            f.write(json.dumps(self._memtable))
-            f.flush()
-            os.fsync()
+        with RenamedTemporaryFile(self.SNAPSHOT_FILE, delete=False) as f:
+            f.write(json.dumps(self._memtable).encode(ENCODING))
+
+'''
+    snapshot
+    ---
+    k: v
+    k: v
+    k: v
+
+    commit 2001
+
+    k: v
+    k: v
+    k: v
+
+    commit 2002
+
+    ...
+
+    commit 4000
+    snapshot
+'''
+
+# snapshot -> aplico todo el log hasta el ultimo snapshot -> tomo un snapshot
+
 
 if __name__ == '__main__':
-    log = Log(maxsize=2)
+    log = Log()
+    kv_store = KeyValueStore(log=log)
+    print(kv_store._memtable)
+    '''
+    log = Log()
     kv_store = KeyValueStore(log=log)
     msg_1 = {'a': 1, 'b': 2}
     msg_2 = {'b': 3, 'c': 3}
-    msgs = [msg_1, msg_2,]
+    msg_3 = {'d': 40, 'v': 5, 'x': 1, 'y': 7}
+    msg_4 = {'a': 10, 'r': 912}
+    msg_5 = {'a': 30, 't': 12, 'w': 32}
+    snap = Snapshot()
+    msgs = [msg_1, msg_2, msg_3, msg_4, msg_5]
 
     for msg in msgs:
         for k,v in msg.items():
             kv_store.put(k, v)
-
-    kv_store._nuke()
-    print(kv_store._memtable)
-    kv_store._restore()
-    print(kv_store._memtable)
+    log.append(snap)
+    raise 
+    kv_store.take_snapshot()
+    '''
