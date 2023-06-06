@@ -1,0 +1,32 @@
+version: '3.9'
+services:
+  bully0:
+    image: bully-poc:latest
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=0
+      - PYTHONUNBUFFERED=1
+
+  bully1:
+    image: bully-poc:latest
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=1
+      - PYTHONUNBUFFERED=1
+
+  bully2:
+    image: bully-poc:latest
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=2
+      - PYTHONUNBUFFERED=1
+
+networks:
+  bully-net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24
