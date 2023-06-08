@@ -4,7 +4,6 @@ PWD := $(shell pwd)
 docker-image:
 	docker build -f ./base-images/client.dockerfile -t "client:latest" .
 	docker build -f ./base-images/server.dockerfile -t "server:latest" .
-	docker build -f ./client/Dockerfile -t "client:latest" .
 
 	docker build -f ./server/common/loader/Dockerfile -t "loader:latest" .
 

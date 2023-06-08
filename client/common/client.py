@@ -1,4 +1,5 @@
 import csv
+import os
 import socket
 import logging
 import signal
@@ -24,6 +25,7 @@ class Client:
         :param data_path: Path to the data directory containing cities' data.
         :param output_path: Path in which to save the metrics.
         """
+        self._id = "1" #None
         self.closed = False
         self._socket = socket.socket(family=socket.AF_INET,
                                      type=socket.SOCK_STREAM)
@@ -124,8 +126,11 @@ class Client:
         self._socket.close()
 
     def save_metrics(self, metrics):
+        output = f'{self._output_path}/{self._id}'
+        if not os.path.exists(output):
+            os.makedirs(output)
         for k, v in metrics.payload.data.items():
-            with open(f'{self._output_path}/{k}.csv', 'w', newline='') as csvfile:
+            with open(f'{output}/{k}.csv', 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(v[0].keys())
                 for row in v:

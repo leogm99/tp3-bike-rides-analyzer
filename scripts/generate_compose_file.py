@@ -30,27 +30,6 @@ services:
       timeout: 5s
       retries: 5
 
-  client:
-    container_name: client
-    image: client:latest
-    entrypoint: python /main.py
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=INFO
-    volumes:
-      - type: bind
-        source: ./client/data
-        target: /data
-      - type: bind
-        source: ./client/output
-        target: /output
-      - type: bind
-        source: ./client/config.ini
-        target: /config.ini
-    depends_on:
-      - loader
-    restart: on-failure
-
   loader:
     <<: *node
     container_name: loader
