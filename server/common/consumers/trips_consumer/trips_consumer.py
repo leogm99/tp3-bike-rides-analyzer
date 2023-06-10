@@ -6,9 +6,9 @@ import logging
 
 
 class TripsConsumer(DAGNode):
-    filter_by_city_fields = {'start_station_code', 'end_station_code', 'yearid', 'city'}
-    filter_by_year_fields = {'start_station_code', 'city', 'yearid'}
-    join_by_date_fields = {'start_date', 'duration_sec', 'city'}
+    filter_by_city_fields = {'client_id', 'message_id', 'start_station_code', 'end_station_code', 'yearid', 'city'}
+    filter_by_year_fields = {'client_id', 'message_id', 'start_station_code', 'city', 'yearid'}
+    join_by_date_fields = {'client_id', 'message_id', 'start_date', 'duration_sec', 'city'}
 
     def __init__(self,
                  filter_by_city_consumers: int = 1,

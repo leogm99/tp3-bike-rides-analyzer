@@ -47,9 +47,9 @@ class Client:
         files_paths_by_city_and_type = get_file_paths_by_city_and_type(self._data_path)
 
         weather_sender = Process(target=self.__send_csv_data,
-                                 args=(files_paths_by_city_and_type, 'weather', self.__send_all_process_safe))
+                                 args=(self._id, files_paths_by_city_and_type, 'weather', self.__send_all_process_safe))
         stations_sender = Process(target=self.__send_csv_data,
-                                  args=(files_paths_by_city_and_type, 'stations', self.__send_all_process_safe))
+                                  args=(self._id, files_paths_by_city_and_type, 'stations', self.__send_all_process_safe))
 
         logging.debug(f'action: sending_static_data | status: in progress')
         weather_sender.start()
@@ -67,7 +67,7 @@ class Client:
             return
         logging.info(f'action: receive-message | message: {message}')
         # reuse the same functions but avoid having to lock with just one process...
-        self.__send_csv_data(files_paths_by_city_and_type, 'trips', lambda payload: self._socket.sendall(payload))
+        self.__send_csv_data(self._id, files_paths_by_city_and_type, 'trips', lambda payload: self._socket.sendall(payload))
         try:
             metrics = Protocol.receive_message(self.__recv_all)
         except BrokenPipeError:
@@ -84,29 +84,32 @@ class Client:
         logging.info(f'action: recv_id | id: {self._id} |status: success')
 
     @staticmethod
-    def __send_csv_data(paths_by_city_and_type: Dict[str, Dict[str, str]],
+    def __send_csv_data(client_id, paths_by_city_and_type: Dict[str, Dict[str, str]],
                         data_type: str,
                         send_callback):
         try:
+            message_id = 0
             for city, city_paths in paths_by_city_and_type.items():
                 data_path = city_paths[data_type]
                 with open(data_path, newline='') as source:
                     reader = csv.DictReader(f=source)
-                    Client.read_and_send_batched(reader, city, data_type, send_callback)
-            Client.send_eof(data_type, send_callback)
+                    Client.read_and_send_batched(reader, client_id, message_id, city, data_type, send_callback)
+            Client.send_eof(client_id, data_type, send_callback)
         except BaseException:
             return
 
     @staticmethod
-    def send_eof(data_type, send_callback):
-        eof_data = {'type': data_type, 'payload': 'EOF'}
+    def send_eof(client_id, data_type, send_callback):
+        eof_data = {'client_id': client_id, 'type': data_type, 'payload': 'EOF'}
         json_eof_data = json.dumps(eof_data)
         send_string_message(send_callback, json_eof_data, 4)
 
     @staticmethod
-    def read_and_send_batched(reader, city, data_type, send_callback, batch_size=BATCH_SIZE):
+    def read_and_send_batched(reader, client_id, message_id, city, data_type, send_callback, batch_size=BATCH_SIZE):
         send_buffer = []
         for row in reader:
+            row['client_id'] = client_id
+            row['message_id'] = str(message_id)
             row['city'] = city
             send_buffer.append(Payload(data=row))
             if len(send_buffer) == batch_size:
@@ -115,6 +118,7 @@ class Client:
                 sleep(0.001)
                 Protocol.send_message(send_callback, msg)
                 send_buffer = []
+            message_id += 1
         if len(send_buffer) != 0:
             msg = Message(message_type=data_type, payload=send_buffer)
             Protocol.send_message(send_callback, msg)

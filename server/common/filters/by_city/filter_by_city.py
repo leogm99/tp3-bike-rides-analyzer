@@ -7,8 +7,8 @@ from common_utils.protocol.protocol import Protocol
 
 
 class FilterByCity(StringEquality):
-    stations_output_fields = {'code', 'yearid', 'name', 'latitude', 'longitude'}
-    trips_output_fields = {'start_station_code', 'end_station_code', 'yearid'}
+    stations_output_fields = {'client_id', 'message_id', 'code', 'yearid', 'name', 'latitude', 'longitude'}
+    trips_output_fields = {'client_id', 'message_id', 'start_station_code', 'end_station_code', 'yearid'}
 
     def __init__(self,
                  filter_key: str,

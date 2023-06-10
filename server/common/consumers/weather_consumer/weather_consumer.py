@@ -7,7 +7,7 @@ from common_utils.protocol.protocol import Protocol
 
 
 class WeatherConsumer(DAGNode):
-    filter_by_precipitation_fields = {'date', 'prectot', 'city'}
+    filter_by_precipitation_fields = {'client_id', 'message_id', 'date', 'prectot', 'city'}
 
     def __init__(self,
                  weather_consumers: int = 1,

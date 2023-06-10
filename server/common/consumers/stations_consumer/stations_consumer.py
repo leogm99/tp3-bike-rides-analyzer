@@ -7,8 +7,8 @@ from common_utils.protocol.protocol import Protocol
 
 
 class StationsConsumer(DAGNode):
-    filter_by_city_fields = {'code', 'yearid', 'city', 'name', 'latitude', 'longitude'}
-    joiner_by_year_city_station_id_fields = {'code', 'city', 'yearid', 'name'}
+    filter_by_city_fields = {'client_id', 'message_id', 'code', 'yearid', 'city', 'name', 'latitude', 'longitude'}
+    joiner_by_year_city_station_id_fields = {'client_id', 'message_id', 'code', 'city', 'yearid', 'name'}
 
     def __init__(self, filter_by_city_consumers: int = 1,
                  middleware: StationsConsumerMiddleware = None):
