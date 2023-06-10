@@ -25,7 +25,7 @@ class Client:
         :param data_path: Path to the data directory containing cities' data.
         :param output_path: Path in which to save the metrics.
         """
-        self._id = "1" #None
+        self._id: str = None
         self.closed = False
         self._socket = socket.socket(family=socket.AF_INET,
                                      type=socket.SOCK_STREAM)
@@ -42,6 +42,7 @@ class Client:
         signal.signal(signal.SIGTERM, lambda *_: self.stop())
 
     def run(self):
+        self.recv_id()
         logging.info('action: register_sigterm | status: success')
         files_paths_by_city_and_type = get_file_paths_by_city_and_type(self._data_path)
 
@@ -74,6 +75,13 @@ class Client:
             return
         self.save_metrics(metrics)
         self.stop()
+    
+    def recv_id(self):
+        msg = Protocol.receive_message(self.__recv_all)
+        if not msg.is_id():
+            raise ValueError('Expected ID message from server')
+        self._id = msg.payload.data
+        logging.info(f'action: recv_id | id: {self._id} |status: success')
 
     @staticmethod
     def __send_csv_data(paths_by_city_and_type: Dict[str, Dict[str, str]],

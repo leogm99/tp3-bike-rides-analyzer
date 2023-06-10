@@ -1,6 +1,8 @@
 import socket
 import logging
 import queue
+import sys
+import uuid
 
 from common.loader.loader_middleware import LoaderMiddleware
 from common.loader.metrics_waiter import MetricsWaiter
@@ -65,6 +67,7 @@ class Loader(DAGNode):
             logging.info('action: run | status: in progress')
             client_socket, _ = self._socket.accept()
             self._client_sock = client_socket
+            self.send_client_id()
             logging.info(f'action: socket-accept | status: success')
             while not self._weather_eof or not self._stations_eof:
                 self.__receive_client_message_and_publish(self._client_sock)
@@ -85,6 +88,11 @@ class Loader(DAGNode):
         except BaseException as e:
             if not self.closed:
                 raise e from e
+    
+    def send_client_id(self):
+        id = str(uuid.uuid4()) #16 bytes
+        id_msg = Message.build_id_message(id)
+        Protocol.send_message(self._client_sock.sendall, id_msg)
 
     def on_message_callback(self, message, delivery_tag):
         raise NotImplementedError

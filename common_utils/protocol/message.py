@@ -16,6 +16,7 @@ NOTIFY = 'notify'
 NULL_TYPE = ''
 TYPE_FIELD = 'type'
 PAYLOAD_FIELD = 'payload'
+ID = 'id'
 
 
 @dataclass
@@ -33,6 +34,10 @@ class Message:
     def build_ack_message():
         return Message(message_type=NOTIFY, payload=Payload(data=ACK))
 
+    @staticmethod
+    def build_id_message(id: str):
+        return Message(message_type=ID, payload=Payload(data=id))
+
     def is_type(self, message_type):
         return self.message_type == message_type
 
@@ -41,6 +46,9 @@ class Message:
 
     def is_ack(self):
         return isinstance(self.payload, Payload) and self.payload.is_ack()
+    
+    def is_id(self):
+        return isinstance(self.payload, Payload) and self.message_type == ID
 
     def pick_payload_fields(self, fields_set: Set):
         new_payload = []

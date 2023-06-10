@@ -3,6 +3,7 @@ from typing import Union, Dict, Any, Set
 
 EOF = 'EOF'
 ACK = 'ACK'
+ID = 'ID'
 
 
 @dataclass
