@@ -1,8 +1,12 @@
+import dataclasses
+import enum
 import os
 import logging
-from typing import Callable
+from typing import Callable, Any
 from time import sleep, time
 from collections import defaultdict
+from restart import restart_container
+from random import randint, random
 
 import zmq
 import threading
@@ -19,13 +23,12 @@ def zmq_retry_send(socket, payload, retry_count=3):
             socket.send_json(payload)
             return True
         except zmq.error.Again:
+            logging.info(f'retry send: {payload}')
             pass
         except BaseException as e:
             logging.error(e)
             raise e
         current_retry += 1
-        if current_retry == retry_count:
-            logging.error(f'retry threshold')
     return False
 
 
@@ -34,7 +37,6 @@ def zmq_retry_recv(socket, retry_count=3):
     while current_retry != retry_count:
         try:
             res = socket.recv_json()
-            # logging.info(f"[{os.getenv('REPLICA_ID')}]: sent payload")
             return res
         except zmq.error.Again:
             pass
@@ -42,8 +44,6 @@ def zmq_retry_recv(socket, retry_count=3):
             logging.error(e)
             raise e
         current_retry += 1
-        if current_retry == retry_count:
-            logging.error('retry threshold')
     return None
 
 
@@ -67,6 +67,7 @@ class Singleton(type):
 
 class ElectionStateMonitor(metaclass=Singleton):
     def __init__(self):
+        logging.info('init called')
         self._l = threading.Lock()
         self._cv = threading.Condition(self._l)
         self._curr_state = ElectionState.UNKNOWN_LEADER
@@ -106,9 +107,7 @@ class ElectionStateMonitor(metaclass=Singleton):
 
     def wait_leader_state(self):
         with self._cv:
-            logging.info('wait_leader_state: waiting leader')
             self._cv.wait_for(lambda: self._curr_state == ElectionState.LEADER_FOUND)
-            logging.info('wait_leader_state: leader found')
             return self._leader_id
 
     def is_leader_set(self):
@@ -143,29 +142,30 @@ class LeaderElectionTrigger(threading.Thread):
         self._done = False
 
     def run(self) -> None:
-        replica_id = os.getenv('REPLICA_ID')
         ctx = zmq.Context.instance()
-
+        '''
         if max(self._hosts_ids_mapping.keys()) == replica_id:
             self.broadcast_leader(ctx)
             return
+        '''
 
         response = self.broadcast_election(ctx)
 
         # si no hay resultados, significa que soy el lider porque nadie me respondio
         if not response:
+            logging.info('timed out broadcasting election, now im leader')
             self.broadcast_leader(ctx)
 
         self._done = True
 
     def broadcast_election(self, ctx):
         response = False
-        for replica_id, h in self._hosts_ids_mapping.items():
-            if replica_id <= self._replica_id:
+        for rid, h in self._hosts_ids_mapping.items():
+            if self._replica_id >= rid:
                 continue
             sock = ctx.socket(zmq.REQ)
-            sock.RCVTIMEO = 1000
-            sock.SNDTIMEO = 1000
+            sock.RCVTIMEO = 2000
+            sock.SNDTIMEO = 2000 + randint(0, 200)
             sock.connect(f'tcp://{h}:{bully_port}')
             res = zmq_retry_send(sock, {'type': 'election', 'id': self._replica_id})
             if not res:
@@ -173,22 +173,20 @@ class LeaderElectionTrigger(threading.Thread):
             data = zmq_retry_recv(sock)
             if data:
                 response = True
+                # suficiente con que alguien me responda
+                break
         return response
 
     def broadcast_leader(self, ctx):
-        logging.info(f"[{os.getenv('REPLICA_ID')}] IM LEADER")
-        for replica_id, h in self._hosts_ids_mapping.items():
-            if replica_id == self._replica_id:
+        logging.info('BROADCASTING LEADER')
+        ElectionStateMonitor().set_leader_found(self._replica_id)
+        for rid, h in self._hosts_ids_mapping.items():
+            if rid == self._replica_id:
                 continue
             sock = ctx.socket(zmq.REQ)
-            sock.RCVTIMEO = 1000
-            sock.SNDTIMEO = 1000
+            sock.SNDTIMEO = 2000 + randint(0, 200)
             sock.connect(f'tcp://{h}:{bully_port}')
-            res = zmq_retry_send(sock, {'type': 'victory', 'id': self._replica_id})
-            if res:
-                _ = zmq_retry_recv(sock)
-
-        ElectionStateMonitor().set_leader_found(self._replica_id)
+            zmq_retry_send(sock, {'type': 'victory', 'id': self._replica_id})
 
     def is_done(self):
         return self._done
@@ -207,8 +205,6 @@ class LeaderElectionListener(threading.Thread):
         self._l = threading.Lock()
 
     def run(self):
-        # TODO: unhardcode messages
-        # self.try_start_new_leader_election()
         while True:
             try:
                 res = self._leader_election_channel.recv_json()
@@ -237,13 +233,39 @@ class LeaderElectionListener(threading.Thread):
                     self._last_leader_election_trigger.join()
                     self._last_leader_election_trigger = None
                 new_leader_election = LeaderElectionTrigger(replica_id=self._replica_id,
-                                                            hosts_ids_mapping={0: 'bully0', 1: 'bully1', 2: 'bully2', 3: 'bully3', 4: 'bully4'})
+                                                            hosts_ids_mapping={0: 'bully0', 1: 'bully1', 2: 'bully2',
+                                                                               3: 'bully3', 4: 'bully4'})
                 new_leader_election.start()
                 self._last_leader_election_trigger = new_leader_election
 
 
+class HostState(enum.Enum):
+    PROLLY_UP = auto()
+    RESTARTING = auto()
+
+
+@dataclasses.dataclass
+class HostInfo:
+    hostname: str
+    heard_from_last: float
+    curr_state: HostState = HostState.PROLLY_UP
+
+    def reached_timeout(self, curr_time, timeout):
+        return curr_time - self.heard_from_last > timeout
+
+    def restarting(self):
+        return self.curr_state == HostState.RESTARTING
+
+    def set_restart(self):
+        self.curr_state = HostState.RESTARTING
+
+    def update_info(self, heard_from):
+        self.heard_from_last = heard_from
+        self.curr_state = HostState.PROLLY_UP
+
+
 class Watchdog(threading.Thread):
-    def __init__(self, hosts, on_failure=lambda *x: None):
+    def __init__(self, hosts, on_failure=lambda *x: Any):
         super().__init__()
         ctx = zmq.Context.instance()
 
@@ -257,11 +279,10 @@ class Watchdog(threading.Thread):
 
         for host in hosts:
             self._socket.connect(f'tcp://{host}:{healthcheck_port}')
-            self._monitored_hosts[host] = curr_time
+            self._monitored_hosts[host] = HostInfo(heard_from_last=curr_time, hostname=host)
 
         # TODO: config vars for timeout
-        self._socket.RCVTIMEO = os.getenv('HEALTHCHECK_TIMEO', 1000)
-        self._socket.SNDTIMEO = os.getenv('HEALTHCHECK_TIMEO', 1000)
+        self._socket.RCVTIMEO = os.getenv('HEALTHCHECK_TIMEO', 10000)
 
     def run(self):
         # observo cada timeout segundos
@@ -272,14 +293,20 @@ class Watchdog(threading.Thread):
         recv = zmq_retry_recv(self._socket)
         current_time = time()
         if recv:
-            logging.info(recv)
             if recv['hostname'] in self._monitored_hosts:
-                self._monitored_hosts[recv['hostname']] = current_time
-        for host, last_time in self._monitored_hosts.items():
-            if current_time - last_time > watcher_timeout:
-                logging.info(f'host {host} may have fallen')
-                self._on_failure(host)
+                self._monitored_hosts[recv['hostname']].update_info(heard_from=current_time)
 
+        prolly_down_hosts = list(
+            map(lambda h: h[1],
+                filter(lambda h:
+                       h[1].reached_timeout(curr_time=current_time, timeout=watcher_timeout) and not
+                       h[1].restarting(),
+                       self._monitored_hosts.items()
+                       )
+                )
+        )
+        if prolly_down_hosts:
+            self._on_failure(prolly_down_hosts)
 
     def stop_watching(self):
         self._stop_event.set()
@@ -290,13 +317,12 @@ class Healthchecker:
         super().__init__()
         ctx = zmq.Context.instance()
         self._socket = ctx.socket(zmq.PUSH)
-        self._socket.RCVTIMEO = os.getenv('HEALTHCHECK_TIMEO', 1000)
         self._socket.SNDTIMEO = os.getenv('HEALTHCHECK_TIMEO', 1000)
         self._socket.bind(f'tcp://*:{healthcheck_port}')
         self._hostname = hostname
 
-    def ping(self) -> None:
-        zmq_retry_send(self._socket, {'type': 'HEALTH', 'hostname': self._hostname})
+    def ping(self):
+        return zmq_retry_send(self._socket, {'type': 'HEALTH', 'hostname': self._hostname}, retry_count=5)
 
 
 def bully(on_leader_callback: Callable, on_follower_callback: Callable):
@@ -304,16 +330,18 @@ def bully(on_leader_callback: Callable, on_follower_callback: Callable):
     listener = LeaderElectionListener(replica_id=replica_id, bully_port=bully_port)
     listener.start()
     election_state_monitor = ElectionStateMonitor()
+    listener.try_start_new_leader_election()
     while True:
-        listener.try_start_new_leader_election()
         elected_leader = election_state_monitor.wait_leader_state()
         if elected_leader == replica_id:
             # we may return in the case a process with higher id joins the bully ring
+            # in case this happens, we should NOT trigger a new leader election!
             on_leader_callback(id_host_mapping)
         else:
             # if this function returns, the leader may have fallen
-            on_follower_callback(elected_leader, id_host_mapping)
-        election_state_monitor.set_unknown()
+            on_follower_callback(id_host_mapping)
+            election_state_monitor.set_unknown()
+            listener.try_start_new_leader_election()
 
 
 if __name__ == '__main__':
@@ -327,32 +355,35 @@ if __name__ == '__main__':
 
     def leader_callback(id_host_mapping):
         leader_id = int(os.getenv('REPLICA_ID'))
-        watch_dog = Watchdog(hosts=[v for k,v in id_host_mapping.items() if k != leader_id])
+        logging.info(f'[{replica_id}] im the leader 😎')
+
+        def on_node_failure(host):
+            logging.info(f'Node that probably failed: {host.hostname}')
+            host.set_restart()
+            restart_container(host.hostname)
+
+        logging.info(f'monitoring over these hosts: {[v for k, v in id_host_mapping.items() if k != leader_id]}')
+        watch_dog = Watchdog(hosts=[v for k, v in id_host_mapping.items() if k != leader_id],
+                             on_failure=lambda hosts: [on_node_failure(host) for host in hosts])
         watch_dog.start()
-        healthchecker = Healthchecker(hostname=id_host_mapping[leader_id])
         election_state = ElectionStateMonitor()
         while election_state.im_leader():
-            healthchecker.ping()
-            sleep(PING_RATE_SECS)
+            sleep(PING_RATE_SECS + (1 + random()))
 
         watch_dog.stop_watching()
         watch_dog.join()
 
 
-    def follower_callback(leader, id_host_mapping):
-        replica_id = int(os.getenv('REPLICA_ID'))
+    def follower_callback(id_host_mapping):
         healthchecker = Healthchecker(hostname=id_host_mapping[replica_id])
-        election_state = ElectionStateMonitor()
 
-        watch_dog = Watchdog(hosts=[id_host_mapping[leader]], on_failure=lambda *_: election_state.set_unknown())
-        watch_dog.start()
-
-        while election_state.is_leader_set():
-            healthchecker.ping()
-            sleep(PING_RATE_SECS)
-
-        watch_dog.stop_watching()
-        watch_dog.join()
+        while True:
+            logging.info(f'[{replica_id}] im just a simple follower')
+            leader_alive = healthchecker.ping()
+            if not leader_alive:
+                logging.info('Failed to ping leader')
+                break
+            sleep(PING_RATE_SECS + (1 + random()))
 
 
     bully(on_leader_callback=leader_callback, on_follower_callback=follower_callback)
