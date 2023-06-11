@@ -7,6 +7,9 @@ services:
     environment:
       - REPLICA_ID=0
       - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=10
 
   bully1:
     image: bully-poc:latest
@@ -15,6 +18,9 @@ services:
     environment:
       - REPLICA_ID=1
       - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=10
 
   bully2:
     image: bully-poc:latest
@@ -23,6 +29,31 @@ services:
     environment:
       - REPLICA_ID=2
       - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=10
+
+  bully3:
+    image: bully-poc:latest
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=3
+      - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=10
+
+  bully4:
+    image: bully-poc:latest
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=4
+      - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=10
 
 networks:
   bully-net:

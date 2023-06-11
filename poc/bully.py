@@ -1,11 +1,15 @@
 import os
 import logging
 from typing import Callable
-from time import sleep
+from time import sleep, time
+from collections import defaultdict
 
 import zmq
 import threading
 from enum import Flag, auto
+
+PING_RATE_SECS = 1
+WATCHER_RATE_SECS = 0.1
 
 
 def zmq_retry_send(socket, payload, retry_count=3):
@@ -162,7 +166,7 @@ class LeaderElectionTrigger(threading.Thread):
             sock = ctx.socket(zmq.REQ)
             sock.RCVTIMEO = 1000
             sock.SNDTIMEO = 1000
-            sock.connect(f'tcp://{h}:12345')
+            sock.connect(f'tcp://{h}:{bully_port}')
             res = zmq_retry_send(sock, {'type': 'election', 'id': self._replica_id})
             if not res:
                 continue
@@ -179,7 +183,7 @@ class LeaderElectionTrigger(threading.Thread):
             sock = ctx.socket(zmq.REQ)
             sock.RCVTIMEO = 1000
             sock.SNDTIMEO = 1000
-            sock.connect(f'tcp://{h}:12345')
+            sock.connect(f'tcp://{h}:{bully_port}')
             res = zmq_retry_send(sock, {'type': 'victory', 'id': self._replica_id})
             if res:
                 _ = zmq_retry_recv(sock)
@@ -191,7 +195,7 @@ class LeaderElectionTrigger(threading.Thread):
 
 
 class LeaderElectionListener(threading.Thread):
-    def __init__(self, replica_id, bully_port=12345) -> None:
+    def __init__(self, replica_id, bully_port) -> None:
         super().__init__()
         self._replica_id = replica_id
         ctx = zmq.Context.instance()
@@ -233,54 +237,71 @@ class LeaderElectionListener(threading.Thread):
                     self._last_leader_election_trigger.join()
                     self._last_leader_election_trigger = None
                 new_leader_election = LeaderElectionTrigger(replica_id=self._replica_id,
-                                                            hosts_ids_mapping={0: 'bully0', 1: 'bully1', 2: 'bully2'})
+                                                            hosts_ids_mapping={0: 'bully0', 1: 'bully1', 2: 'bully2', 3: 'bully3', 4: 'bully4'})
                 new_leader_election.start()
                 self._last_leader_election_trigger = new_leader_election
 
 
-class Healthchecker:
-    def __init__(self, remote_host, port):
+class Watchdog(threading.Thread):
+    def __init__(self, hosts, on_failure=lambda *x: None):
         super().__init__()
-        self._remote_host = remote_host
-        self._port = port
         ctx = zmq.Context.instance()
-        self._socket = ctx.socket(zmq.REQ)
-        self._socket.connect(f'tcp://{remote_host}:{port}')
+
+        self._socket = ctx.socket(zmq.PULL)
+        self._monitored_hosts = defaultdict()
+        self._stop_event = threading.Event()
+        self._on_failure = on_failure
+        self._hosts = hosts
+
+        curr_time = time()
+
+        for host in hosts:
+            self._socket.connect(f'tcp://{host}:{healthcheck_port}')
+            self._monitored_hosts[host] = curr_time
+
         # TODO: config vars for timeout
-        self._socket.RCVTIMEO = 2000
-        self._socket.SNDTIMEO = 2000
+        self._socket.RCVTIMEO = os.getenv('HEALTHCHECK_TIMEO', 1000)
+        self._socket.SNDTIMEO = os.getenv('HEALTHCHECK_TIMEO', 1000)
 
-    def ping(self):
-        ping_msg = {'type': 'PING'}
-        logging.info(f'sending ping to: {self._remote_host}')
-        sent = zmq_retry_send(self._socket, ping_msg)
-        if not sent:
-            return False
+    def run(self):
+        # observo cada timeout segundos
+        while not self._stop_event.wait(timeout=WATCHER_RATE_SECS):
+            self.watch()
+
+    def watch(self):
         recv = zmq_retry_recv(self._socket)
-        if not recv:
-            return False
-        return True
-
-
-class HealthcheckResponder:
-    def __init__(self):
-        ctx = zmq.Context.instance()
-        self._socket = ctx.socket(zmq.REP)
-        self._socket.RCVTIMEO = 2000
-        self._socket.SNDTIMEO = 2000
-        self._socket.bind('tcp://*:12346')
-
-    def respond(self) -> None:
-        logging.info('responding ping')
-        recv = zmq_retry_recv(self._socket)
+        current_time = time()
         if recv:
-            zmq_retry_send(self._socket, recv)
+            logging.info(recv)
+            if recv['hostname'] in self._monitored_hosts:
+                self._monitored_hosts[recv['hostname']] = current_time
+        for host, last_time in self._monitored_hosts.items():
+            if current_time - last_time > watcher_timeout:
+                logging.info(f'host {host} may have fallen')
+                self._on_failure(host)
+
+
+    def stop_watching(self):
+        self._stop_event.set()
+
+
+class Healthchecker:
+    def __init__(self, hostname):
+        super().__init__()
+        ctx = zmq.Context.instance()
+        self._socket = ctx.socket(zmq.PUSH)
+        self._socket.RCVTIMEO = os.getenv('HEALTHCHECK_TIMEO', 1000)
+        self._socket.SNDTIMEO = os.getenv('HEALTHCHECK_TIMEO', 1000)
+        self._socket.bind(f'tcp://*:{healthcheck_port}')
+        self._hostname = hostname
+
+    def ping(self) -> None:
+        zmq_retry_send(self._socket, {'type': 'HEALTH', 'hostname': self._hostname})
 
 
 def bully(on_leader_callback: Callable, on_follower_callback: Callable):
-    replica_id = int(os.getenv('REPLICA_ID'))
-    id_host_mapping = {0: 'bully0', 1: 'bully1', 2: 'bully2'}
-    listener = LeaderElectionListener(replica_id=int(os.getenv('REPLICA_ID')))
+    id_host_mapping = {0: 'bully0', 1: 'bully1', 2: 'bully2', 3: 'bully3', 4: 'bully4'}
+    listener = LeaderElectionListener(replica_id=replica_id, bully_port=bully_port)
     listener.start()
     election_state_monitor = ElectionStateMonitor()
     while True:
@@ -288,7 +309,7 @@ def bully(on_leader_callback: Callable, on_follower_callback: Callable):
         elected_leader = election_state_monitor.wait_leader_state()
         if elected_leader == replica_id:
             # we may return in the case a process with higher id joins the bully ring
-            on_leader_callback()
+            on_leader_callback(id_host_mapping)
         else:
             # if this function returns, the leader may have fallen
             on_follower_callback(elected_leader, id_host_mapping)
@@ -298,22 +319,40 @@ def bully(on_leader_callback: Callable, on_follower_callback: Callable):
 if __name__ == '__main__':
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
     logging.info('RUNNING BULLY TEST')
+    replica_id = int(os.getenv('REPLICA_ID'))
+    bully_port = os.getenv('BULLY_PORT')
+    healthcheck_port = os.getenv('HEALTHCHECK_PORT')
+    watcher_timeout = float(os.getenv('WATCHER_TIMEOUT_SECS'))
 
 
-    def leader_callback():
-        health_checker_responder = HealthcheckResponder()
+    def leader_callback(id_host_mapping):
+        leader_id = int(os.getenv('REPLICA_ID'))
+        watch_dog = Watchdog(hosts=[v for k,v in id_host_mapping.items() if k != leader_id])
+        watch_dog.start()
+        healthchecker = Healthchecker(hostname=id_host_mapping[leader_id])
         election_state = ElectionStateMonitor()
         while election_state.im_leader():
-            health_checker_responder.respond()
-            sleep(1)
+            healthchecker.ping()
+            sleep(PING_RATE_SECS)
+
+        watch_dog.stop_watching()
+        watch_dog.join()
 
 
     def follower_callback(leader, id_host_mapping):
-        health_checker = Healthchecker(remote_host=id_host_mapping[leader], port=12346)
+        replica_id = int(os.getenv('REPLICA_ID'))
+        healthchecker = Healthchecker(hostname=id_host_mapping[replica_id])
         election_state = ElectionStateMonitor()
+
+        watch_dog = Watchdog(hosts=[id_host_mapping[leader]], on_failure=lambda *_: election_state.set_unknown())
+        watch_dog.start()
+
         while election_state.is_leader_set():
-            if not health_checker.ping():
-                election_state.set_unknown()
+            healthchecker.ping()
+            sleep(PING_RATE_SECS)
+
+        watch_dog.stop_watching()
+        watch_dog.join()
 
 
     bully(on_leader_callback=leader_callback, on_follower_callback=follower_callback)
