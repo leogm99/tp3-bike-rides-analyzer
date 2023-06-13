@@ -4,12 +4,12 @@ from haversine import haversine
 
 from common.appliers.applier import Applier
 from common.appliers.haversine_applier.haversine_applier_middleware import HaversineApplierMiddleware
-from common_utils.protocol.message import Message, NULL_TYPE
+from common_utils.protocol.message import Message, NULL_TYPE, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 
 class HaversineApplier(Applier):
-    output_fields = {'end_station_name', 'distance'}
+    output_fields = {'client_id', 'end_station_name', 'distance'}
 
     def __init__(self,
                  start_latitude_key: str,
@@ -46,8 +46,9 @@ class HaversineApplier(Applier):
         msg = Message(message_type=NULL_TYPE, payload=new_payload)
         self.__send_message(msg)
 
-    def on_producer_finished(self, message, delivery_tag):
-        eof = Message.build_eof_message()
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.payload.data[CLIENT_ID]
+        eof = Message.build_eof_message(client_id=client_id)
         raw_eof = Protocol.serialize_message(eof)
         for i in range(self._consumers):
             self._middleware.send_aggregator_message(
