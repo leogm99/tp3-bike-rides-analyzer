@@ -14,7 +14,7 @@ class Payload:
         return Payload(data={k: v for k, v in self.data.items() if k in fields_set})
 
     def is_eof(self):
-        return self.data == EOF
+        return EOF in self.data and self.data[EOF] == True
 
     def is_ack(self):
-        return self.data == ACK
+        return ACK in self.data and self.data[ACK] == True

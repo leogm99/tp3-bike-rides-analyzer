@@ -5,7 +5,7 @@ from typing import Tuple
 from common.joiners.by_year_city_station_id.joiner_by_year_city_station_id_middleware import \
     JoinByYearCityStationIdMiddleware
 from common.joiners.joiner import Joiner
-from common_utils.protocol.message import Message, TRIPS, STATIONS, NULL_TYPE
+from common_utils.protocol.message import Message, TRIPS, STATIONS, NULL_TYPE, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 
@@ -53,14 +53,15 @@ class JoinByYearCityStationId(Joiner):
                 raw_msg = Protocol.serialize_message(msg)
                 self._middleware.send_aggregate_message(raw_msg, routing_key_suffix)
 
-    def on_producer_finished(self, message, delivery_tag):
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.payload.data[CLIENT_ID]
         if message.is_type(STATIONS):
             self._middleware.cancel_consuming_stations()
-            ack = Protocol.serialize_message(Message.build_ack_message())
+            ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id))
             self._middleware.send_static_data_ack(ack)
             logging.info(f'action: on-producer-finished | len-keys: {len(self._side_table.keys())}')
         if message.is_type(TRIPS):
-            eof = Message.build_eof_message()
+            eof = Message.build_eof_message(client_id=client_id)
             raw_eof = Protocol.serialize_message(eof)
             for i in range(self._consumers):
                 self._middleware.send_aggregate_message(raw_eof, i)

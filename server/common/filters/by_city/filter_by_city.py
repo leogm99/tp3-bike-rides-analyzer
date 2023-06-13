@@ -2,7 +2,7 @@ import logging
 
 from common.filters.by_city.filter_by_city_middleware import FilterByCityMiddleware
 from common.filters.string_equality.string_equality import StringEquality
-from common_utils.protocol.message import Message, TRIPS, STATIONS
+from common_utils.protocol.message import Message, TRIPS, STATIONS, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 
@@ -52,13 +52,14 @@ class FilterByCity(StringEquality):
         raw_message = Protocol.serialize_message(message)
         self._middleware.send_trips_message(raw_message)
 
-    def on_producer_finished(self, message, delivery_tag):
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.payload.data[CLIENT_ID]
         if message.is_type(STATIONS):
-            stations_eof = Message.build_eof_message(STATIONS)
+            stations_eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id)
             self.__send_stations_message(stations_eof)
             self._middleware.cancel_consuming_stations()
         elif message.is_type(TRIPS):
-            trips_eof = Message.build_eof_message(TRIPS)
+            trips_eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id)
             for _ in range(self._trips_consumers):
                 self.__send_trips_message(trips_eof)
             self._middleware.stop()

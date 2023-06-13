@@ -17,6 +17,7 @@ NULL_TYPE = ''
 TYPE_FIELD = 'type'
 PAYLOAD_FIELD = 'payload'
 ID = 'id'
+CLIENT_ID = 'client_id'
 
 
 @dataclass
@@ -25,14 +26,14 @@ class Message:
     payload: Union[List[Payload], Payload]
 
     @staticmethod
-    def build_eof_message(message_type=''):
+    def build_eof_message(message_type='', client_id: str = ''):
         if message_type == '':
-            return Message(message_type=NULL_TYPE, payload=Payload(data=EOF))
-        return Message(message_type=message_type, payload=Payload(data=EOF))
+            return Message(message_type=NULL_TYPE, payload=Payload(data={EOF: True, CLIENT_ID: client_id}))
+        return Message(message_type=message_type, payload=Payload(data={EOF: True, CLIENT_ID: client_id}))
 
     @staticmethod
-    def build_ack_message():
-        return Message(message_type=NOTIFY, payload=Payload(data=ACK))
+    def build_ack_message(client_id: str = ''):
+        return Message(message_type=NOTIFY, payload=Payload(data={ACK: True, CLIENT_ID: client_id}))
 
     @staticmethod
     def build_id_message(id: str):

@@ -1,0 +1,272 @@
+
+version: '3.9'
+
+x-node: &node
+  entrypoint: python /main.py
+  links:
+    - rabbit
+  depends_on:
+    - rabbit
+  volumes:
+    - type: bind
+      source: ./server/config.ini
+      target: /config.ini
+  restart: on-failure
+
+services:
+  rabbit:
+    container_name: rabbit
+    build:
+      context: ./rabbit
+      dockerfile: Dockerfile
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check-port-connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loader:
+    <<: *node
+    container_name: loader
+    image: loader:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - NODE_NAME=LOADER
+      - STATIONS_CONSUMER_REPLICAS=1
+      - WEATHER_CONSUMER_REPLICAS=1
+      - TRIPS_CONSUMER_REPLICAS=1
+      - JOINER_BY_DATE_REPLICAS=1
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=1
+      - PORT=8888
+    ports:
+      - "8888:8888"
+    depends_on:
+      - trips_consumer
+      - stations_consumer
+      - weather_consumer
+
+  trips_consumer:
+    <<: *node
+    image: trips_consumer:latest
+    entrypoint: python /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=DEBUG
+      - NODE_NAME=TRIPS_CONSUMER
+      - FILTER_BY_CITY_REPLICAS=1
+      - FILTER_BY_YEAR_REPLICAS=1
+      - JOINER_BY_DATE_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - filter_by_city
+      - filter_by_year
+      - joiner_by_date
+      
+  metrics_consumer:
+    <<: *node
+    image: metrics_consumer:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=METRICS_CONSUMER
+      - FILTER_BY_COUNT_REPLICAS=1
+      - FILTER_BY_DISTANCE_REPLICAS=1
+      - AGGREGATE_TRIP_DURATION_REPLICAS=1
+    depends_on:
+      - rabbit 
+
+  stations_consumer:
+    <<: *node
+    image: stations_consumer:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=STATIONS_CONSUMER
+      - FILTER_BY_CITY_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - filter_by_city
+      - joiner_by_year_city_station_id
+
+  weather_consumer:
+    <<: *node
+    image: weather_consumer:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=WEATHER_CONSUMER
+      - FILTER_BY_PRECIPITATION_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - filter_by_precipitation
+
+  filter_by_year:
+    <<: *node
+    image: filter_by_year:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=FILTER_BY_YEAR
+      - TRIPS_CONSUMER_REPLICAS=1
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - joiner_by_year_city_station_id
+
+  filter_by_distance:
+    <<: *node
+    image: filter_by_distance:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=FILTER_BY_DISTANCE
+      - AGGREGATE_TRIP_DISTANCE_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - rabbit
+
+  filter_by_precipitation:
+    <<: *node
+    image: filter_by_precipitation:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=FILTER_BY_PRECIPITATION
+      - WEATHER_CONSUMER_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - joiner_by_date
+
+  filter_by_city:
+    <<: *node
+    image: filter_by_city:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=FILTER_BY_CITY
+      - TRIPS_CONSUMER_REPLICAS=1
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=1
+      - STATIONS_CONSUMER_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - joiner_by_year_end_station_id
+
+  filter_by_count:
+    <<: *node
+    image: filter_by_count:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=FILTER_BY_COUNT
+      - AGGREGATE_TRIP_COUNT_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - metrics_consumer
+
+  joiner_by_year_end_station_id:
+    <<: *node
+    image: joiner_by_year_end_station_id:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=JOINER_BY_YEAR_END_STATION_ID
+      - FILTER_BY_CITY_REPLICAS=1
+      - HAVERSINE_APPLIER_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - haversine_applier
+      
+
+
+  aggregate_trip_distance_0:
+    <<: *node
+    image: aggregate_trip_distance:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_DISTANCE
+      - HAVERSINE_APPLIER_REPLICAS=1
+      - FILTER_BY_DISTANCE_REPLICAS=1
+      - ID=0
+    depends_on:
+      - filter_by_distance
+
+  aggregate_trip_duration_0:
+    <<: *node
+    image: aggregate_trip_duration:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_DURATION
+      - JOINER_BY_DATE_REPLICAS=1
+      - ID=0
+    depends_on:
+      - metrics_consumer
+
+  aggregate_trip_count_0:
+    <<: *node
+    image: aggregate_trip_count:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_COUNT
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
+      - FILTER_BY_COUNT_REPLICAS=1
+      - ID=0
+    depends_on:
+      - filter_by_count
+
+  haversine_applier:
+    <<: *node
+    image: haversine_applier:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=HAVERSINE_APPLIER
+      - HAVERSINE_APPLIER_REPLICAS=1
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=1
+      - AGGREGATE_TRIP_DISTANCE_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+      - aggregate_trip_distance_0
+  joiner_by_year_city_station_id:
+    <<: *node
+    image: joiner_by_year_city_station_id:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=JOINER_BY_YEAR_CITY_STATION_ID
+      - STATIONS_CONSUMER_REPLICAS=1
+      - FILTER_BY_YEAR_REPLICAS=1
+      - AGGREGATE_TRIP_COUNT_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+
+      - aggregate_trip_count_0
+  joiner_by_date:
+    <<: *node
+    image: joiner_by_date:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=JOINER_BY_DATE
+      - FILTER_BY_PRECIPITATION_REPLICAS=1
+      - TRIPS_CONSUMER_REPLICAS=1
+      - AGGREGATE_TRIP_DURATION_REPLICAS=1
+    deploy:
+      mode: replicated
+      replicas: 1
+    depends_on:
+  
+      - aggregate_trip_duration_0

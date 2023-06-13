@@ -1,6 +1,6 @@
 from common.consumers.trips_consumer.trips_consumer_middleware import TripsConsumerMiddleware
 from common.dag_node import DAGNode
-from common_utils.protocol.message import Message, TRIPS
+from common_utils.protocol.message import Message, TRIPS, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 import logging
 
@@ -40,8 +40,9 @@ class TripsConsumer(DAGNode):
         self.__send_message_to_joiner_by_date(join_by_date_message)
         self.__send_message_to_filter_by_city(filter_by_city_message)
 
-    def on_producer_finished(self, _message, delivery_tag):
-        eof = Message.build_eof_message(message_type=TRIPS)
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.payload.data[CLIENT_ID]
+        eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id)
         for _ in range(self._filter_by_year_consumers):
             self.__send_message_to_filter_by_year(eof)
         for _ in range(self._filter_by_city_consumers):

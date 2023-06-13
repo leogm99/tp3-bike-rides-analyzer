@@ -100,7 +100,7 @@ class Client:
 
     @staticmethod
     def send_eof(client_id, data_type, send_callback):
-        eof_data = {'client_id': client_id, 'type': data_type, 'payload': 'EOF'}
+        eof_data = {'type': data_type, 'payload': {'EOF': True, 'client_id': client_id}}
         json_eof_data = json.dumps(eof_data)
         send_string_message(send_callback, json_eof_data, 4)
 

@@ -2,7 +2,7 @@ import logging
 
 from common.filters.by_distance.filter_by_distance_middleware import FilterByDistanceMiddleware
 from common.filters.numeric_range.numeric_range import NumericRange
-from common_utils.protocol.message import Message, DISTANCE_METRIC
+from common_utils.protocol.message import Message, DISTANCE_METRIC, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 
@@ -33,8 +33,9 @@ class FilterByDistance(NumericRange):
             raw_msg = Protocol.serialize_message(message_obj)
             self._middleware.send_metrics_message(raw_msg)
 
-    def on_producer_finished(self, message, delivery_tag):
-        eof = Message.build_eof_message(message_type=DISTANCE_METRIC)
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.payload.data[CLIENT_ID]
+        eof = Message.build_eof_message(message_type=DISTANCE_METRIC, client_id=client_id)
         raw_eof = Protocol.serialize_message(eof)
         self._middleware.send_metrics_message(raw_eof)
         self._middleware.stop()

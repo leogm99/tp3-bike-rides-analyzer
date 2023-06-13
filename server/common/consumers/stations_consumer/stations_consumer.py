@@ -2,7 +2,7 @@ import logging
 
 from common.consumers.stations_consumer.stations_consumer_middleware import StationsConsumerMiddleware
 from common.dag_node import DAGNode
-from common_utils.protocol.message import Message, STATIONS
+from common_utils.protocol.message import Message, STATIONS, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 
@@ -37,9 +37,10 @@ class StationsConsumer(DAGNode):
         self.__send_message_to_filter_by_city(filter_by_city_message)
         self.__send_message_to_joiner_by_year_city_station_id(joiner_by_year_city_station_id_message)
 
-    def on_producer_finished(self, _message, delivery_tag):
+    def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('received eof')
-        eof = Message.build_eof_message(message_type=STATIONS)
+        client_id = message.payload.data[CLIENT_ID]
+        eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id)
         for _ in range(self._filter_consumers):
             self.__send_message_to_filter_by_city(eof)
         self.__send_message_to_joiner_by_year_city_station_id(eof)

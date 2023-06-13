@@ -3,7 +3,7 @@ import logging
 
 from common.filters.by_count.filter_by_count_middleware import FilterByCountMiddleware
 from common.filters.numeric_range.numeric_range import NumericRange
-from common_utils.protocol.message import Message, COUNT_METRIC
+from common_utils.protocol.message import Message, COUNT_METRIC, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 
@@ -40,8 +40,11 @@ class FilterByCount(NumericRange):
             raw_message = Protocol.serialize_message(obj)
             self._middleware.send_metrics_message(raw_message)
 
-    def on_producer_finished(self, message, delivery_tag):
-        self._middleware.send_metrics_message(json.dumps({'type': 'count_metric', 'payload': 'EOF'}))
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.payload.data[CLIENT_ID]
+        eof = Message.build_eof_message(message_type=COUNT_METRIC, client_id=client_id)
+        raw_eof = Protocol.serialize_message(eof)
+        self._middleware.send_metrics_message(raw_eof)
         self._middleware.stop()
 
     def close(self):

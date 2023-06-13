@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from common.joiners.by_date.join_by_date_middleware import JoinByDateMiddleware
 from common.joiners.joiner import Joiner
-from common_utils.protocol.message import Message, TRIPS, WEATHER, NULL_TYPE
+from common_utils.protocol.message import Message, TRIPS, WEATHER, NULL_TYPE, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 DELTA_CORRECTION = timedelta(days=1)
@@ -64,13 +64,14 @@ class JoinByDate(Joiner):
             logging.error(f'action: on-message-callback | result: failed | reason {e}')
             raise e from e
 
-    def on_producer_finished(self, message, delivery_tag):
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.payload.data[CLIENT_ID]
         if message.is_type(WEATHER):
             self._middleware.cancel_consuming_weather()
-            ack = Protocol.serialize_message(Message.build_ack_message())
+            ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id))
             self._middleware.send_static_data_ack(ack)
         if message.is_type(TRIPS):
-            eof = Message.build_eof_message()
+            eof = Message.build_eof_message(client_id=client_id)
             raw_eof = Protocol.serialize_message(eof)
             for i in range(self._consumers):
                 self._middleware.send_aggregator_message(raw_eof, i)

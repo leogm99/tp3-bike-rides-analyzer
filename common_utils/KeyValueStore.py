@@ -11,6 +11,15 @@ class KeyValueStore:
     
     def update(self, key, **kwargs):
         self._memtable[key].update(**kwargs)
+
+    def append(self, key, value):
+        self._memtable[key].append(value)
     
+    def items(self):
+        return self._memtable.items()
+    
+    def getAll(self):
+        return self._memtable
+
     def _nuke(self):
         self._memtable = {}

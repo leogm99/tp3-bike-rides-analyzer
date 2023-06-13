@@ -11,7 +11,7 @@ from common_utils.utils import receive_string_message, recv_n_bytes, send_string
 from common.dag_node import DAGNode
 from common.loader.static_data_ack_waiter import StaticDataAckWaiter
 from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
-from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS
+from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS, CLIENT_ID
 from common_utils.protocol.payload import Payload
 from common_utils.protocol.protocol import Protocol
 
@@ -100,7 +100,7 @@ class Loader(DAGNode):
     def on_producer_finished(self, message, delivery_tag):
         raise NotImplementedError
 
-    def on_eof_threshold_reached(self, eof_type: str):
+    def on_eof_threshold_reached(self, eof_type: str, client_id: str):
         if eof_type == STATIONS:
             replica_count = self._stations_consumer_replica_count
             send = self._middleware.send_stations
@@ -115,14 +115,14 @@ class Loader(DAGNode):
             self._trips_eof = True
         else:
             raise ValueError("Invalid type of data received")
-        eof = Message.build_eof_message()
+        eof = Message.build_eof_message(client_id=client_id)
         for _ in range(replica_count):
             send(Protocol.serialize_message(eof))
 
     def __receive_client_message_and_publish(self, client_socket):
         message = Protocol.receive_message(lambda n: recv_n_bytes(client_socket, n))
         if message.is_eof():
-            self.on_eof_threshold_reached(message.message_type)
+            self.on_eof_threshold_reached(message.message_type, message.payload.data[CLIENT_ID])
         else:
             raw_message = Protocol.serialize_message(message)
             if message.is_type(TRIPS):

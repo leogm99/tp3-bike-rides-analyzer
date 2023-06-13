@@ -2,7 +2,7 @@ import logging
 
 from common.consumers.weather_consumer.weather_consumer_middleware import WeatherConsumerMiddleware
 from common.dag_node import DAGNode
-from common_utils.protocol.message import Message, WEATHER
+from common_utils.protocol.message import Message, WEATHER, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 
@@ -30,9 +30,10 @@ class WeatherConsumer(DAGNode):
         filter_by_precipitation_message = message_obj.pick_payload_fields(self.filter_by_precipitation_fields)
         self.__send_message_to_filter_by_precipitation(filter_by_precipitation_message)
 
-    def on_producer_finished(self, _message, delivery_tag):
+    def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('received eof')
-        eof = Message.build_eof_message(message_type=WEATHER)
+        client_id = message.payload.data[CLIENT_ID]
+        eof = Message.build_eof_message(message_type=WEATHER, client_id=client_id)
         logging.info(eof)
         for _ in range(self._weather_consumers):
             self.__send_message_to_filter_by_precipitation(eof)

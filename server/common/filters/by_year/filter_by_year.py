@@ -2,7 +2,7 @@ import logging
 
 from common.filters.by_year.filter_by_year_middleware import FilterByYearMiddleware
 from common.filters.numeric_range.numeric_range import NumericRange
-from common_utils.protocol.message import Message, TRIPS
+from common_utils.protocol.message import Message, TRIPS, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
 
@@ -38,9 +38,10 @@ class FilterByYear(NumericRange):
         raw_message = Protocol.serialize_message(message)
         self._middleware.send_joiner_message(raw_message)
 
-    def on_producer_finished(self, message, delivery_tag):
+    def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('action: on-producer-finished | received EOS')
-        eof = Message.build_eof_message(message_type=TRIPS)
+        client_id = message.payload.data[CLIENT_ID]
+        eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id)
         for _ in range(self._consumers):
             self.__send_joiner_message(eof)
         self._middleware.stop()

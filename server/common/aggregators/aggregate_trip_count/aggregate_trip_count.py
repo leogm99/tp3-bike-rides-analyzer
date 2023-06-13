@@ -5,8 +5,9 @@ from common.aggregators.count_aggregator.count_aggregator import CountAggregator
 from typing import Tuple
 
 from common_utils.protocol.payload import Payload
-from common_utils.protocol.message import Message, NULL_TYPE
+from common_utils.protocol.message import Message, NULL_TYPE, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
+from common_utils.KeyValueStore import KeyValueStore
 
 
 class AggregateTripCount(CountAggregator):
@@ -39,13 +40,15 @@ class AggregateTripCount(CountAggregator):
             elif year == 2017:
                 self.aggregate(payload=obj, year_2016=0, year_2017=1)
 
-    def on_producer_finished(self, message, delivery_tag):
-        for k, v in self._aggregate_table.items():
-            payload = Payload(data={'station': k, 'year_2016': v['year_2016'], 'year_2017': v['year_2017']})
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.payload.data[CLIENT_ID]
+        client_results: KeyValueStore = self._aggregate_table[client_id]
+        for k, v in client_results.items():
+            payload = Payload(data={CLIENT_ID: client_id, 'station': k, 'year_2016': v['year_2016'], 'year_2017': v['year_2017']})
             msg = Message(message_type=NULL_TYPE, payload=payload)
             raw_msg = Protocol.serialize_message(msg)
             self._middleware.send_filter_message(raw_msg)
-        eof = Message.build_eof_message()
+        eof = Message.build_eof_message(client_id=client_id)
         raw_eof = Protocol.serialize_message(eof)
         for _ in range(self._consumers):
             self._middleware.send_filter_message(raw_eof)
