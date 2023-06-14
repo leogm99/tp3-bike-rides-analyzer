@@ -37,7 +37,7 @@ class WeatherConsumer(DAGNode):
         logging.info(eof)
         for _ in range(self._weather_consumers):
             self.__send_message_to_filter_by_precipitation(eof)
-        self._middleware.stop()
+        # self._middleware.stop()
 
     def __send_message_to_filter_by_precipitation(self, message: Message):
         raw_message = Protocol.serialize_message(message)

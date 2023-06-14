@@ -38,7 +38,7 @@ class MetricsConsumer(DAGNode):
         metrics = Message(message_type=METRICS, payload=Payload(client_id=client_id, data=self._metrics_by_client_id[client_id].getAll()))
         raw_metrics = Protocol.serialize_message(metrics)
         self._middleware.send_metrics_message(raw_metrics)
-        self._middleware.stop()
+        # self._middleware.stop()
 
     def close(self):
         if not self.closed:

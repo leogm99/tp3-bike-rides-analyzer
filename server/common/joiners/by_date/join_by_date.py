@@ -75,7 +75,7 @@ class JoinByDate(Joiner):
             raw_eof = Protocol.serialize_message(eof)
             for i in range(self._consumers):
                 self._middleware.send_aggregator_message(raw_eof, i)
-            self._middleware.stop()
+            # self._middleware.stop()
 
     def close(self):
         if not self.closed:

@@ -45,7 +45,7 @@ class AggregateTripDistance(RollingAverageAggregator):
         raw_eof = Protocol.serialize_message(eof)
         for _ in range(self._consumers):
             self._middleware.send_filter_message(raw_eof)
-        self._middleware.stop()
+        # self._middleware.stop()
 
     def close(self):
         if not self.closed:

@@ -44,7 +44,7 @@ class FilterByYear(NumericRange):
         eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id)
         for _ in range(self._consumers):
             self.__send_joiner_message(eof)
-        self._middleware.stop()
+        # self._middleware.stop()
 
     def close(self):
         if not self.closed:

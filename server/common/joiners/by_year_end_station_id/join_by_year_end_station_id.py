@@ -80,7 +80,7 @@ class JoinByYearEndStationId(Joiner):
             eof = Message.build_eof_message(client_id=client_id)
             for _ in range(self._consumers):
                 self.__send_message(eof)
-            self._middleware.stop()
+            # self._middleware.stop()
 
     def close(self):
         if not self.closed:
