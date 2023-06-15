@@ -5,11 +5,11 @@ QUEUE_NAME = 'static_data_ack'
 
 
 class StaticDataAckWaiterMiddleware(Middleware):
-    def __init__(self, hostname: str):
+    def __init__(self, hostname: str, client_id: str):
         super().__init__(hostname)
         self._static_data_ack = RabbitQueue(
             self._rabbit_connection,
-            queue_name=QUEUE_NAME,
+            queue_name=QUEUE_NAME + '_' + client_id,
         )
 
     def receive_ack(self, on_message_callback, on_end_message_callback):

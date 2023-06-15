@@ -12,12 +12,6 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = LoaderMiddleware(
             hostname=config_params['rabbit_hostname'],
         )
-        static_ack_waiter_middleware = StaticDataAckWaiterMiddleware(
-            hostname=config_params['rabbit_hostname'],
-        )
-        metrics_waiter_middleware = MetricsWaiterMiddleware(
-            hostname=config_params['rabbit_hostname'],
-        )
         return Loader(
             port=int(config_params['port']),
             backlog=int(config_params['backlog']),
@@ -28,8 +22,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
                 config_params['joiner_by_year_city_station_id_replicas']) + int(
                 config_params['joiner_by_year_end_station_id_replicas']),
             middleware=middleware,
-            metrics_waiter_middleware=metrics_waiter_middleware,
-            static_data_ack_middleware=static_ack_waiter_middleware,
+            hostname=config_params['rabbit_hostname'],
         )
     elif node_name == 'TRIPS_CONSUMER':
         from common.consumers.trips_consumer.trips_consumer import TripsConsumer

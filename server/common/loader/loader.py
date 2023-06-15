@@ -1,7 +1,8 @@
+import multiprocessing
+import os
 import socket
 import logging
 import queue
-import sys
 import uuid
 
 from common.loader.loader_middleware import LoaderMiddleware
@@ -14,6 +15,7 @@ from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterM
 from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS, CLIENT_ID
 from common_utils.protocol.payload import Payload
 from common_utils.protocol.protocol import Protocol
+from common.loader.client_manager import ClientManager
 
 
 class Loader(DAGNode):
@@ -25,8 +27,7 @@ class Loader(DAGNode):
                  trips_consumer_replica_count: int,
                  ack_count: int,
                  middleware: LoaderMiddleware,
-                 static_data_ack_middleware: StaticDataAckWaiterMiddleware,
-                 metrics_waiter_middleware: MetricsWaiterMiddleware):
+                 hostname: str):
         super().__init__()
         try:
             self._socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0)
@@ -39,19 +40,13 @@ class Loader(DAGNode):
             self._weather_consumer_replica_count = weather_consumer_replica_count
             self._trips_consumer_replica_count = trips_consumer_replica_count
 
-            self._static_ack_waiter = StaticDataAckWaiter(
-                ack_count,
-                middleware=static_data_ack_middleware,
-            )
-            self._local_queue = queue.Queue()
-            self._metrics_waiter = MetricsWaiter(
-                local_queue=self._local_queue,
-                middleware=metrics_waiter_middleware,
-            )
-            self._weather_eof = False
-            self._stations_eof = False
-            self._trips_eof = False
-            self._client_sock = None
+            self._ack_count = ack_count
+            self._hostname = hostname
+
+            self._clients_number = 5 #Change to env variable later
+            self._process_queue = multiprocessing.Queue()
+            self._queue_lock = multiprocessing.Lock()
+            self._client_manager = ClientManager(self._clients_number)
 
         except socket.error as se:
             logging.error(f'action: socket-create | status: failed | reason: {se}')
@@ -62,37 +57,77 @@ class Loader(DAGNode):
 
     def run(self):
         try:
-            self._static_ack_waiter.start()
-            self._metrics_waiter.start()
-            logging.info('action: run | status: in progress')
-            client_socket, _ = self._socket.accept()
-            self._client_sock = client_socket
-            self.send_client_id()
-            logging.info(f'action: socket-accept | status: success')
-            while not self._weather_eof or not self._stations_eof:
-                self.__receive_client_message_and_publish(self._client_sock)
-            self._static_ack_waiter.join()
-            ack = Message.build_ack_message()
-            Protocol.send_message(self._client_sock.sendall, ack)
-            while not self._trips_eof:
-                self.__receive_client_message_and_publish(self._client_sock)
-            logging.info('action: receiving-metrics | status: in progress')
-            metrics_obj = self._local_queue.get(block=True, timeout=None)
-            logging.info('action: receiving-metrics | status: success')
-            self._metrics_waiter.join()
-            logging.info('action: sending metrics to client | status: in progress')
-            Protocol.send_message(self._client_sock.sendall, metrics_obj)
-            self.close()
+            with multiprocessing.Pool(processes=self._clients_number) as pool:
+                pool.map(self.process_loop, range(self._clients_number))
+
+            self.accept_clients()
         except BrokenPipeError:
             logging.info('action: receive_client_message | connection closed by client')
         except BaseException as e:
             if not self.closed:
                 raise e from e
-    
-    def send_client_id(self):
+        finally:
+            if not self.closed:
+                self._socket.shutdown(socket.SHUT_RDWR)
+                self._socket.close()
+                super(Loader, self).close()
+
+    def accept_clients(self):
+        #add use of client manager
+        while True:
+            client_socket, _ = self._socket.accept()
+            self._process_queue.put(client_socket)
+
+    def process_loop(self):
+        while True:
+            self._queue_lock.acquire()
+            client_socket = self._process_queue.get(block=True, timeout=None)
+            self._queue_lock.release()
+
+            self._run(client_socket, self._hostname, self._ack_count)
+
+    def _run(self, client_socket, hostname, ack_count):
+        process_id = os.getpid()
+        logging.info(f'action: run process | status: in progress | process_id: {process_id}')
+
+        client_id = self.get_client_id()
+
+        static_ack_waiter = StaticDataAckWaiter(ack_count, middleware=StaticDataAckWaiterMiddleware(
+            hostname=hostname, client_id=client_id
+        ))
+        local_queue = queue.Queue()
+        metrics_waiter = MetricsWaiter(local_queue=local_queue, middleware=MetricsWaiterMiddleware(
+            hostname=hostname, client_id=client_id
+        ))
+        static_ack_waiter.start()
+        metrics_waiter.start()
+
+        Protocol.send_message(client_socket.sendall, client_id)
+
+        weather_eof = False
+        stations_eof = False
+        while not weather_eof or not stations_eof:
+            self.__receive_client_message_and_publish(client_socket)
+        static_ack_waiter.join()
+        ack = Message.build_ack_message()
+        Protocol.send_message(client_socket.sendall, ack)
+
+        trips_eof = False
+        while not trips_eof:
+            self.__receive_client_message_and_publish(client_socket)
+        logging.info(f'action: receiving-metrics | status: in progress | process_id: {process_id}')
+        metrics_obj = local_queue.get(block=True, timeout=None)
+        logging.info(f'action: receiving-metrics | status: success | process_id: {process_id}')
+        metrics_waiter.join()
+        logging.info(f'action: sending metrics to client | status: in progress | process_id: {process_id}')
+        Protocol.send_message(client_socket, metrics_obj)
+
+        self.close(client_socket, static_ack_waiter, metrics_waiter)
+
+    def get_client_id(self, socket):
         id = str(uuid.uuid4()) #16 bytes
         id_msg = Message.build_id_message(id)
-        Protocol.send_message(self._client_sock.sendall, id_msg)
+        return id_msg
 
     def on_message_callback(self, message, delivery_tag):
         raise NotImplementedError
@@ -134,18 +169,14 @@ class Loader(DAGNode):
             else:
                 raise ValueError("Invalid type of data received")
 
-    def close(self):
-        if not self.closed:
-            logging.info('action: close | status: in-progress')
-            super(Loader, self).close()
-            if self._client_sock:
-                self._client_sock.shutdown(socket.SHUT_RDWR)
-                self._client_sock.close()
-            self._socket.shutdown(socket.SHUT_RDWR)
-            self._socket.close()
-            if self._metrics_waiter.is_alive():
-                self._metrics_waiter.close()
-                self._metrics_waiter.join()
-            if self._static_ack_waiter.is_alive():
-                self._static_ack_waiter.close()
-                self._static_ack_waiter.join()
+    def close(self, client_socket, static_ack_waiter, metrics_waiter):
+        logging.info(f'action: close | status: in-progress | process_id: {os.getpid()}')
+        if client_socket:
+            client_socket.shutdown(socket.SHUT_RDWR)
+            client_socket.close()
+        if metrics_waiter.is_alive():
+            metrics_waiter.close()
+            metrics_waiter.join()
+        if static_ack_waiter.is_alive():
+            static_ack_waiter.close()
+            static_ack_waiter.join()
