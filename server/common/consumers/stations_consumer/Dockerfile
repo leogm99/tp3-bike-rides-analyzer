@@ -8,3 +8,4 @@ COPY ./server/common/dag_node_factory.py /common/dag_node_factory.py
 COPY ./server/common/rabbit /common/rabbit
 COPY ./server/common/middleware /common/middleware
 COPY ./server/common/consumers/stations_consumer /common/consumers/stations_consumer
+COPY ./server/common/watched /common/watched

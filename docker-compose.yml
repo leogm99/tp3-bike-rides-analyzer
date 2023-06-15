@@ -11,7 +11,9 @@ x-node: &node
     - type: bind
       source: ./server/config.ini
       target: /config.ini
-  restart: on-failure
+    - type: bind
+      source: ./server/hosts.txt
+      target: /hosts.txt
 
 services:
   rabbit:
@@ -58,9 +60,9 @@ services:
       - NODE_NAME=LOADER
       - STATIONS_CONSUMER_REPLICAS=1
       - WEATHER_CONSUMER_REPLICAS=1
-      - TRIPS_CONSUMER_REPLICAS=1
+      - TRIPS_CONSUMER_REPLICAS=3
       - JOINER_BY_DATE_REPLICAS=1
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=5
       - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=1
       - PORT=8888
     ports:
@@ -83,7 +85,7 @@ services:
       - JOINER_BY_DATE_REPLICAS=1
     deploy:
       mode: replicated
-      replicas: 1
+      replicas: 3
     depends_on:
       - filter_by_city
       - filter_by_year
@@ -134,8 +136,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_YEAR
-      - TRIPS_CONSUMER_REPLICAS=1
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
+      - TRIPS_CONSUMER_REPLICAS=3
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=5
     deploy:
       mode: replicated
       replicas: 1
@@ -174,7 +176,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_CITY
-      - TRIPS_CONSUMER_REPLICAS=1
+      - TRIPS_CONSUMER_REPLICAS=3
       - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=1
       - STATIONS_CONSUMER_REPLICAS=1
     deploy:
@@ -189,7 +191,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_COUNT
-      - AGGREGATE_TRIP_COUNT_REPLICAS=1
+      - AGGREGATE_TRIP_COUNT_REPLICAS=2
     deploy:
       mode: replicated
       replicas: 1
@@ -209,8 +211,6 @@ services:
       replicas: 1
     depends_on:
       - haversine_applier
-      
-
 
   aggregate_trip_distance_0:
     <<: *node
@@ -224,6 +224,7 @@ services:
     depends_on:
       - filter_by_distance
 
+
   aggregate_trip_duration_0:
     <<: *node
     image: aggregate_trip_duration:latest
@@ -235,17 +236,32 @@ services:
     depends_on:
       - metrics_consumer
 
+
   aggregate_trip_count_0:
     <<: *node
     image: aggregate_trip_count:latest
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=5
       - FILTER_BY_COUNT_REPLICAS=1
       - ID=0
     depends_on:
       - filter_by_count
+
+
+  aggregate_trip_count_1:
+    <<: *node
+    image: aggregate_trip_count:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=AGGREGATE_TRIP_COUNT
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=5
+      - FILTER_BY_COUNT_REPLICAS=1
+      - ID=1
+    depends_on:
+      - filter_by_count
+
 
   haversine_applier:
     <<: *node
@@ -261,6 +277,7 @@ services:
       replicas: 1
     depends_on:
       - aggregate_trip_distance_0
+
   joiner_by_year_city_station_id:
     <<: *node
     image: joiner_by_year_city_station_id:latest
@@ -269,13 +286,14 @@ services:
       - NODE_NAME=JOINER_BY_YEAR_CITY_STATION_ID
       - STATIONS_CONSUMER_REPLICAS=1
       - FILTER_BY_YEAR_REPLICAS=1
-      - AGGREGATE_TRIP_COUNT_REPLICAS=1
+      - AGGREGATE_TRIP_COUNT_REPLICAS=2
     deploy:
       mode: replicated
-      replicas: 1
+      replicas: 5
     depends_on:
-
       - aggregate_trip_count_0
+      - aggregate_trip_count_1
+
   joiner_by_date:
     <<: *node
     image: joiner_by_date:latest
@@ -283,11 +301,94 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=JOINER_BY_DATE
       - FILTER_BY_PRECIPITATION_REPLICAS=1
-      - TRIPS_CONSUMER_REPLICAS=1
+      - TRIPS_CONSUMER_REPLICAS=3
       - AGGREGATE_TRIP_DURATION_REPLICAS=1
     deploy:
       mode: replicated
       replicas: 1
     depends_on:
-  
       - aggregate_trip_duration_0
+
+  watcher_0:
+    <<: *node
+    image: watcher:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+      - type: bind
+        source: ./server/hosts.txt
+        target: /hosts.txt
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=WATCHER
+      - ID=0
+    depends_on:
+      - loader
+
+
+  watcher_1:
+    <<: *node
+    image: watcher:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+      - type: bind
+        source: ./server/hosts.txt
+        target: /hosts.txt
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=WATCHER
+      - ID=1
+    depends_on:
+      - loader
+
+
+  watcher_2:
+    <<: *node
+    image: watcher:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+      - type: bind
+        source: ./server/hosts.txt
+        target: /hosts.txt
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=WATCHER
+      - ID=2
+    depends_on:
+      - loader
+
+
+  watcher_3:
+    <<: *node
+    image: watcher:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+      - type: bind
+        source: ./server/hosts.txt
+        target: /hosts.txt
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=WATCHER
+      - ID=3
+    depends_on:
+      - loader
+

@@ -1,34 +1,39 @@
 import socket
+import struct
 
-WATCHER_PORT = 12346
-RETRIES = 3
-WATCHER_RETRY_RATE = 1
+PING = b'p'
+PAYLOAD_FORMAT = '!cb'
+PING_PORT = 12345
+RETRIES = 5
+PING_RETRY_RATE = 1
 
 
-class WatcherMiddleware:
-    def __init__(self, bind=False):
+class PingMiddleware:
+    def __init__(self, send_port=PING_PORT, bind_port=PING_PORT):
         self._udp_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        if bind:
-            self._udp_socket.bind(('', WATCHER_PORT))
-        self._udp_socket.settimeout(WATCHER_RETRY_RATE)
+        if bind_port:
+            self._udp_socket.bind(('', bind_port))
+        self._udp_socket.settimeout(PING_RETRY_RATE)
+        self._send_port = send_port
 
-    def receive_watcher_message(self):
+    def receive_ping(self):
         retries = 3
         while retries:
             try:
-                _, addr = self.__recv_all(1)
-                return addr
-            except BaseException:
+                data, _ = self.__recv_all(2)
+                return struct.unpack(PAYLOAD_FORMAT, data)
+            except BaseException as e:
                 retries -= 1
         return None
 
-    def send_watcher_message(self, addr):
-        retries = 3
+    def send_ping(self, sender_id, addr):
+        payload = struct.pack(PAYLOAD_FORMAT, PING, sender_id)
+        retries = RETRIES
         while retries:
             try:
-                self.__send_all(b'\x00', (addr, WATCHER_PORT))
+                self.__send_all(payload, (addr, self._send_port))
                 return True
-            except BaseException:
+            except BaseException as e:
                 retries -= 1
         return False
 

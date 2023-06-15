@@ -1,4 +1,5 @@
 import socket
+import logging
 
 WATCHER_PORT = 12346
 RETRIES = 3
@@ -7,6 +8,7 @@ WATCHER_RETRY_RATE = 1
 
 class WatcherMiddleware:
     def __init__(self, bind=False):
+        logging.info(f'Watcher Middleware constructor: Binding? {bind}')
         self._udp_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         if bind:
             self._udp_socket.bind(('', WATCHER_PORT))
@@ -44,6 +46,9 @@ class WatcherMiddleware:
 
     def __send_all(self, payload, addr):
         sent = 0
+        if len(payload) == 1:
+            self._udp_socket.sendto(payload, addr)
+            return
         while sent != len(payload):
             sent += self._udp_socket.sendto(payload[sent:], addr)
 

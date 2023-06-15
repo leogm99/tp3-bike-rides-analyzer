@@ -42,7 +42,6 @@ def bully():
             ping_res = ping.receive_ping()
             if ping_res:
                 ping.send_ping(replica_id, id_host_mapping[ping_res[1]])
-            sleep(0.1)
         else:
             if watcher:
                 watcher.stop_watch()
@@ -54,8 +53,8 @@ def bully():
             leader = leader_election.get_leader_id()
             logging.info(f'leader is {leader}')
             if leader is None:
-                sleep(1 + random())
                 leader_election.find_leader(id_host_mapping=id_host_mapping)
+                sleep(2 + random())
             else:
                 if not ping.send_ping(replica_id, id_host_mapping[leader]) or not ping.receive_ping():
                     logging.info('maybe leader failed...')
