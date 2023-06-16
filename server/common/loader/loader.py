@@ -27,12 +27,13 @@ class Loader(DAGNode):
                  trips_consumer_replica_count: int,
                  ack_count: int,
                  middleware: LoaderMiddleware,
-                 hostname: str):
+                 hostname: str,
+                 max_clients: int):
         super().__init__()
         try:
-            self._socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0)
-            self._socket.bind(('', port))
-            self._socket.listen(backlog)
+            self._socket = None
+            self._port = port
+            self._backlog = backlog
 
             self._middleware = middleware
 
@@ -43,10 +44,10 @@ class Loader(DAGNode):
             self._ack_count = ack_count
             self._hostname = hostname
 
-            self._clients_number = 5 #Change to env variable later
+            self._clients_number = max_clients
             self._process_queue = multiprocessing.Queue()
             self._queue_lock = multiprocessing.Lock()
-            self._client_manager = ClientManager(self._clients_number)
+            self._client_manager: ClientManager = ClientManager(self._clients_number)
 
         except socket.error as se:
             logging.error(f'action: socket-create | status: failed | reason: {se}')
@@ -73,18 +74,28 @@ class Loader(DAGNode):
                 super(Loader, self).close()
 
     def accept_clients(self):
-        #add use of client manager
         while True:
-            client_socket, _ = self._socket.accept()
-            self._process_queue.put(client_socket)
+            self._open_server_socket()
+            while True:
+                client_socket, _ = self._socket.accept()
+                self._process_queue.put(client_socket)
+                if not self._client_manager.add_client():
+                    break
+            self._socket.close()
+            self._client_manager.wait_slot_available()
+
+    def _open_server_socket(self):
+        self._socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0)
+        self._socket.bind(('', self._port))
+        self._socket.listen(self._backlog)
 
     def process_loop(self):
         while True:
-            self._queue_lock.acquire()
-            client_socket = self._process_queue.get(block=True, timeout=None)
-            self._queue_lock.release()
-
+            with self._queue_lock:
+                client_socket = self._process_queue.get(block=True, timeout=None)
+            
             self._run(client_socket, self._hostname, self._ack_count)
+            self._client_manager.remove_client()
 
     def _run(self, client_socket, hostname, ack_count):
         process_id = os.getpid()

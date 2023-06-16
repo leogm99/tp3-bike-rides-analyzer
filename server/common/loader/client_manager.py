@@ -21,7 +21,7 @@ class ClientManager(metaclass=Singleton):
     def add_client(self):
         with self._l:
             self._counter -= 1
-            return self._counter == 0
+            return self._counter != 0
 
     def remove_client(self):
         with self._l:

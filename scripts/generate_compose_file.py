@@ -44,6 +44,7 @@ services:
       - JOINER_BY_DATE_REPLICAS={replica_dict['joiner_by_date']}
       - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS={replica_dict['joiner_by_year_city_station_id']}
       - JOINER_BY_YEAR_END_STATION_ID_REPLICAS={replica_dict['joiner_by_year_end_station_id']}
+      - MAX_CLIENTS={replica_dict['max_clients']}
       - PORT=8888
     ports:
       - "8888:8888"
@@ -322,6 +323,8 @@ def main():
                         help='aggregate trip distance replicas', default=1)
     parser.add_argument('--haversine_applier', type=int,
                         help='haversine applier replicas', default=1)
+    parser.add_argument('--max_clients', type=int,
+                        help='max clients in the system', default=1)
 
     args = parser.parse_args()
     replica_dict = {arg: getattr(args, arg) for arg in vars(args)}

@@ -23,6 +23,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
                 config_params['joiner_by_year_end_station_id_replicas']),
             middleware=middleware,
             hostname=config_params['rabbit_hostname'],
+            max_clients=int(config_params['MAX_CLIENTS']),
         )
     elif node_name == 'TRIPS_CONSUMER':
         from common.consumers.trips_consumer.trips_consumer import TripsConsumer
