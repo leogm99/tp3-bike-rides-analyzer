@@ -39,7 +39,7 @@ class FilterByPrecipitation(NumericRange):
         raw_eof = Protocol.serialize_message(eof)
         for _ in range(self._weather_consumers):
             self._middleware.send_joiner_message(raw_eof)
-        # self._middleware.stop()
+        self._middleware.stop()
 
     def close(self):
         if not self.closed:

@@ -51,7 +51,7 @@ class Client:
         stations_sender = Process(target=self.__send_csv_data,
                                   args=(self._id, files_paths_by_city_and_type, 'stations', self.__send_all_process_safe))
 
-        logging.debug(f'action: sending_static_data | status: in progress')
+        logging.info(f'action: sending_static_data | status: in progress')
         weather_sender.start()
         stations_sender.start()
         weather_sender.join()
@@ -60,7 +60,7 @@ class Client:
             if self.closed:
                 logging.info('action: close | status: success | gracefully quitting')
                 return
-        logging.debug(f'action: sending_static_data | status: success')
+        logging.info(f'action: sending_static_data | status: success')
         message = Protocol.receive_message(self.__recv_all)
         if not message.is_type('notify') and not message.is_ack():
             self.stop()

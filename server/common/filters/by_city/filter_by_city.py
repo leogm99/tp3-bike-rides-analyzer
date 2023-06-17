@@ -62,7 +62,7 @@ class FilterByCity(StringEquality):
             trips_eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id)
             for _ in range(self._trips_consumers):
                 self.__send_trips_message(trips_eof)
-            # self._middleware.stop()
+            self._middleware.stop()
 
     def close(self):
         if not self.closed:

@@ -54,7 +54,7 @@ class HaversineApplier(Applier):
             self._middleware.send_aggregator_message(
                 raw_eof, i
             )
-        # self._middleware.stop()
+        self._middleware.stop()
 
     def __send_message(self, message: Message):
         hashes = self.hash_message(message.payload, hashing_key='end_station_name', hash_modulo=self._consumers)

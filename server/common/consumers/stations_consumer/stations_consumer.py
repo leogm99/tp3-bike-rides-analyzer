@@ -44,7 +44,7 @@ class StationsConsumer(DAGNode):
         for _ in range(self._filter_consumers):
             self.__send_message_to_filter_by_city(eof)
         self.__send_message_to_joiner_by_year_city_station_id(eof)
-        # self._middleware.stop()
+        self._middleware.stop()
 
     def __send_message_to_filter_by_city(self, message: Message):
         raw_message = Protocol.serialize_message(message)
