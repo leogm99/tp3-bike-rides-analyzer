@@ -58,14 +58,14 @@ class JoinByYearCityStationId(Joiner):
         if message.is_type(STATIONS):
             self._middleware.cancel_consuming_stations()
             ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id))
-            self._middleware.send_static_data_ack(ack)
+            self._middleware.send_static_data_ack(ack, client_id)
             logging.info(f'action: on-producer-finished | len-keys: {len(self._side_table.keys())}')
         if message.is_type(TRIPS):
             eof = Message.build_eof_message(client_id=client_id)
             raw_eof = Protocol.serialize_message(eof)
             for i in range(self._consumers):
                 self._middleware.send_aggregate_message(raw_eof, i)
-            # self._middleware.stop()
+            self._middleware.stop()
 
     def close(self):
         if not self.closed:

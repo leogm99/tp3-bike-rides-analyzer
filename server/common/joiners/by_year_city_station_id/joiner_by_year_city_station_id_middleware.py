@@ -36,8 +36,8 @@ class JoinByYearCityStationIdMiddleware(Middleware):
     def cancel_consuming_stations(self):
         self._stations_input_queue.cancel()
 
-    def send_static_data_ack(self, ack):
-        self._output_exchange.publish(ack, routing_key=STATIC_DATA_ACK_ROUTING_KEY)
+    def send_static_data_ack(self, ack, client_id):
+        self._output_exchange.publish(ack, routing_key=STATIC_DATA_ACK_ROUTING_KEY + '_' + client_id)
 
     def send_aggregate_message(self, message, aggregate_id):
         self._output_exchange.publish(message, routing_key=AGGREGATE_TRIP_COUNT_ROUTING_KEY(aggregate_id))

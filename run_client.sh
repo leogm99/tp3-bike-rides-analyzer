@@ -15,7 +15,7 @@ services:
     entrypoint: python /main.py
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=INFO
+      - LOGGING_LEVEL=DEBUG
     volumes:
       - type: bind
         source: ./${DATA}

@@ -4,6 +4,7 @@ import socket
 import logging
 import queue
 import uuid
+from multiprocessing.pool import ThreadPool
 
 from common.loader.loader_middleware import LoaderMiddleware
 from common.loader.metrics_waiter import MetricsWaiter
@@ -16,7 +17,7 @@ from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS, CLI
 from common_utils.protocol.payload import Payload
 from common_utils.protocol.protocol import Protocol
 from common.loader.client_manager import ClientManager
-
+from common.loader.stream_state import StreamState
 
 class Loader(DAGNode):
     def __init__(self,
@@ -43,8 +44,8 @@ class Loader(DAGNode):
 
             self._ack_count = ack_count
             self._hostname = hostname
-
             self._clients_number = max_clients
+
             self._process_queue = multiprocessing.Queue()
             self._queue_lock = multiprocessing.Lock()
             self._client_manager: ClientManager = ClientManager(self._clients_number)
@@ -58,8 +59,12 @@ class Loader(DAGNode):
 
     def run(self):
         try:
-            with multiprocessing.Pool(processes=self._clients_number) as pool:
-                pool.map(self.process_loop, range(self._clients_number))
+            #with multiprocessing.Pool(processes=self._clients_number) as pool:
+            #    pool.map(self.process_loop, range(self._clients_number))
+            # TypeError: cannot pickle '_thread.lock' object
+            for _ in range(self._clients_number):
+                p = multiprocessing.Process(target=self.process_loop)
+                p.start()
 
             self.accept_clients()
         except BrokenPipeError:
@@ -76,10 +81,12 @@ class Loader(DAGNode):
     def accept_clients(self):
         while True:
             self._open_server_socket()
+            logging.info('action: Accepting clients | status: in progress')
             while True:
                 client_socket, _ = self._socket.accept()
                 self._process_queue.put(client_socket)
                 if not self._client_manager.add_client():
+                    logging.info('action: Max connections reached')
                     break
             self._socket.close()
             self._client_manager.wait_slot_available()
@@ -99,43 +106,45 @@ class Loader(DAGNode):
 
     def _run(self, client_socket, hostname, ack_count):
         process_id = os.getpid()
-        logging.info(f'action: run process | status: in progress | process_id: {process_id}')
+        try: 
+            logging.info(f'action: run process to receive client data | status: in progress | process_id: {process_id}')
 
-        client_id = self.get_client_id()
+            client_id = self.get_client_id()
 
-        static_ack_waiter = StaticDataAckWaiter(ack_count, middleware=StaticDataAckWaiterMiddleware(
-            hostname=hostname, client_id=client_id
-        ))
-        local_queue = queue.Queue()
-        metrics_waiter = MetricsWaiter(local_queue=local_queue, middleware=MetricsWaiterMiddleware(
-            hostname=hostname, client_id=client_id
-        ))
-        static_ack_waiter.start()
-        metrics_waiter.start()
+            static_ack_waiter = StaticDataAckWaiter(ack_count, middleware=StaticDataAckWaiterMiddleware(
+                hostname=hostname, client_id=client_id.payload.data
+            ))
+            local_queue = queue.Queue()
+            metrics_waiter = MetricsWaiter(local_queue=local_queue, middleware=MetricsWaiterMiddleware(
+                hostname=hostname, client_id=client_id.payload.data
+            ))
+            static_ack_waiter.start()
+            metrics_waiter.start()
 
-        Protocol.send_message(client_socket.sendall, client_id)
+            Protocol.send_message(client_socket.sendall, client_id)
 
-        weather_eof = False
-        stations_eof = False
-        while not weather_eof or not stations_eof:
-            self.__receive_client_message_and_publish(client_socket)
-        static_ack_waiter.join()
-        ack = Message.build_ack_message()
-        Protocol.send_message(client_socket.sendall, ack)
+            streamState = StreamState()
 
-        trips_eof = False
-        while not trips_eof:
-            self.__receive_client_message_and_publish(client_socket)
-        logging.info(f'action: receiving-metrics | status: in progress | process_id: {process_id}')
-        metrics_obj = local_queue.get(block=True, timeout=None)
-        logging.info(f'action: receiving-metrics | status: success | process_id: {process_id}')
-        metrics_waiter.join()
-        logging.info(f'action: sending metrics to client | status: in progress | process_id: {process_id}')
-        Protocol.send_message(client_socket, metrics_obj)
+            while streamState.is_static_data_eof():
+                self.__receive_client_message_and_publish(client_socket, streamState)
+            static_ack_waiter.join()
+            ack = Message.build_ack_message(client_id.payload.data)
+            Protocol.send_message(client_socket.sendall, ack)
 
-        self.close(client_socket, static_ack_waiter, metrics_waiter)
+            while streamState.is_trips_eof():
+                self.__receive_client_message_and_publish(client_socket, streamState)
+            logging.info(f'action: receiving-metrics | status: in progress | process_id: {process_id}')
+            metrics_obj = local_queue.get(block=True, timeout=None)
+            logging.info(f'action: receiving-metrics | status: success | process_id: {process_id}')
+            metrics_waiter.join()
+            logging.info(f'action: sending metrics to client | status: in progress | process_id: {process_id}')
+            Protocol.send_message(client_socket.sendall, metrics_obj)
 
-    def get_client_id(self, socket):
+            self.close(client_socket, static_ack_waiter, metrics_waiter)
+        except Exception as e:
+            logging.info(f"Error: {e} | process_id: {process_id}")
+
+    def get_client_id(self):
         id = str(uuid.uuid4()) #16 bytes
         id_msg = Message.build_id_message(id)
         return id_msg
@@ -146,29 +155,29 @@ class Loader(DAGNode):
     def on_producer_finished(self, message, delivery_tag):
         raise NotImplementedError
 
-    def on_eof_threshold_reached(self, eof_type: str, client_id: str):
+    def on_eof_threshold_reached(self, eof_type: str, client_id: str, streamState: StreamState):
         if eof_type == STATIONS:
             replica_count = self._stations_consumer_replica_count
             send = self._middleware.send_stations
-            self._stations_eof = True
+            streamState.set_stations_eof()
         elif eof_type == WEATHER:
             replica_count = self._weather_consumer_replica_count
             send = self._middleware.send_weather
-            self._weather_eof = True
+            streamState.set_weather_eof()
         elif eof_type == TRIPS:
             replica_count = self._trips_consumer_replica_count
             send = self._middleware.send_trips
-            self._trips_eof = True
+            streamState.set_trips_eof()
         else:
             raise ValueError("Invalid type of data received")
         eof = Message.build_eof_message(client_id=client_id)
         for _ in range(replica_count):
             send(Protocol.serialize_message(eof))
 
-    def __receive_client_message_and_publish(self, client_socket):
+    def __receive_client_message_and_publish(self, client_socket, streamState: StreamState):
         message = Protocol.receive_message(lambda n: recv_n_bytes(client_socket, n))
         if message.is_eof():
-            self.on_eof_threshold_reached(message.message_type, message.payload.data[CLIENT_ID])
+            self.on_eof_threshold_reached(message.message_type, message.payload.data[CLIENT_ID], streamState)
         else:
             raw_message = Protocol.serialize_message(message)
             if message.is_type(TRIPS):

@@ -35,10 +35,12 @@ class MetricsConsumer(DAGNode):
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = self._get_client_id(message)
-        metrics = Message(message_type=METRICS, payload=Payload(client_id=client_id, data=self._metrics_by_client_id[client_id].getAll()))
+        metrics_data = self._metrics_by_client_id[client_id].getAll()
+        metrics_data[CLIENT_ID] = client_id
+        metrics = Message(message_type=METRICS, payload=Payload(data=metrics_data))
         raw_metrics = Protocol.serialize_message(metrics)
-        self._middleware.send_metrics_message(raw_metrics)
-        # self._middleware.stop()
+        self._middleware.send_metrics_message(raw_metrics, client_id)
+        self._middleware.stop()
 
     def close(self):
         if not self.closed:

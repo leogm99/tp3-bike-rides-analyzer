@@ -27,11 +27,12 @@ class Joiner(DAGNode, ABC):
         return self.__join(payload)
 
     def insert_into_side_table(self, payload: Union[Payload, List[Payload]], save_key: str = ''):
-        self._verify_client_id(payload)
         if isinstance(payload, list):
             for obj in payload:
+                self._verify_client_id(obj)
                 self.__insert_into_side_table(obj, save_key)
             return
+        self._verify_client_id(payload)
         self.__insert_into_side_table(payload, save_key)
 
     def __join(self, payload: Payload):

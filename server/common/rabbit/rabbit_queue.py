@@ -30,11 +30,11 @@ class RabbitQueue:
             self.ack(delivery_tag)
             if message.is_eof():
                 client_id = message.payload.data[CLIENT_ID]
-                self._count_eof[CLIENT_ID] = self._count_eof.get(client_id, 0) + 1
-                if self._count_eof[CLIENT_ID] == self._producers:
+                self._count_eof[client_id] = self._count_eof.get(client_id, 0) + 1
+                if self._count_eof[client_id] == self._producers:
                     return on_producer_finished(message, delivery_tag)
-                if self._count_eof[CLIENT_ID] > self._producers:
-                    raise ValueError(f'Received {self._count_eof[CLIENT_ID]}, expected {self._producers}')
+                if self._count_eof[client_id] > self._producers:
+                    raise ValueError(f'Received {self._count_eof[client_id]}, expected {self._producers}')
             else:
                 return on_message_callback(message, delivery_tag)
         self._consumer_tag = self._rabbit_connection.consume(

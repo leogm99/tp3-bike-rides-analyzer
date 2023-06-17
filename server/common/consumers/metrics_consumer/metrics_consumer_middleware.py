@@ -22,5 +22,5 @@ class MetricsConsumerMiddleware(Middleware):
         self._input_queue.consume(on_message_callback, on_end_message_callback)
         pass
 
-    def send_metrics_message(self, message):
-        self._output_exchange.publish(message, routing_key=LOADER_ROUTING_KEY)
+    def send_metrics_message(self, message, client_id):
+        self._output_exchange.publish(message, routing_key=LOADER_ROUTING_KEY + '_' + client_id)

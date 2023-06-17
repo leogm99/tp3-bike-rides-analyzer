@@ -27,7 +27,7 @@ def main():
         aggregate_trip_count_replicas='AGGREGATE_TRIP_COUNT_REPLICAS',
         aggregate_trip_distance_replicas='AGGREGATE_TRIP_DISTANCE_REPLICAS',
         haversine_applier_replicas='HAVERSINE_APPLIER_REPLICAS',
-        max_clients='MAX_CLIENTS',
+        max_clients='MAX_CLIENTS'
     )
     initialize_logging(config_params['logging_level'])
     logging.debug(f'action: config | result: success | '

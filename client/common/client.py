@@ -42,8 +42,8 @@ class Client:
         signal.signal(signal.SIGTERM, lambda *_: self.stop())
 
     def run(self):
-        self.recv_id()
         logging.info('action: register_sigterm | status: success')
+        self.recv_id()
         files_paths_by_city_and_type = get_file_paths_by_city_and_type(self._data_path)
 
         weather_sender = Process(target=self.__send_csv_data,
@@ -62,7 +62,7 @@ class Client:
                 return
         logging.debug(f'action: sending_static_data | status: success')
         message = Protocol.receive_message(self.__recv_all)
-        if not message.is_type('notify') and not message.payload.data == 'ACK':
+        if not message.is_type('notify') and not message.is_ack():
             self.stop()
             return
         logging.info(f'action: receive-message | message: {message}')
