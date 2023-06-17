@@ -14,8 +14,8 @@ class StreamState():
     def set_trips_eof(self):
         self._trips_eof = True
     
-    def is_static_data_eof(self):
+    def not_static_data_eof_received(self):
         return not self._weather_eof or not self._stations_eof
 
-    def is_trips_eof(self):
+    def not_trips_eof_received(self):
         return not self._trips_eof

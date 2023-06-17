@@ -4,7 +4,6 @@ import socket
 import logging
 import queue
 import uuid
-from multiprocessing.pool import ThreadPool
 
 from common.loader.loader_middleware import LoaderMiddleware
 from common.loader.metrics_waiter import MetricsWaiter
@@ -14,7 +13,6 @@ from common.dag_node import DAGNode
 from common.loader.static_data_ack_waiter import StaticDataAckWaiter
 from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
 from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS, CLIENT_ID
-from common_utils.protocol.payload import Payload
 from common_utils.protocol.protocol import Protocol
 from common.loader.client_manager import ClientManager
 from common.loader.stream_state import StreamState
@@ -59,12 +57,11 @@ class Loader(DAGNode):
 
     def run(self):
         try:
-            #with multiprocessing.Pool(processes=self._clients_number) as pool:
-            #    pool.map(self.process_loop, range(self._clients_number))
-            # TypeError: cannot pickle '_thread.lock' object
+            _processes = []
             for _ in range(self._clients_number):
                 p = multiprocessing.Process(target=self.process_loop)
                 p.start()
+                _processes.append(p)
 
             self.accept_clients()
         except BrokenPipeError:
@@ -125,13 +122,13 @@ class Loader(DAGNode):
 
             streamState = StreamState()
 
-            while streamState.is_static_data_eof():
+            while streamState.not_static_data_eof_received():
                 self.__receive_client_message_and_publish(client_socket, streamState)
             static_ack_waiter.join()
             ack = Message.build_ack_message(client_id.payload.data)
             Protocol.send_message(client_socket.sendall, ack)
 
-            while streamState.is_trips_eof():
+            while streamState.not_trips_eof_received():
                 self.__receive_client_message_and_publish(client_socket, streamState)
             logging.info(f'action: receiving-metrics | status: in progress | process_id: {process_id}')
             metrics_obj = local_queue.get(block=True, timeout=None)
