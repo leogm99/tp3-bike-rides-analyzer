@@ -29,7 +29,7 @@ class RabbitQueue:
             delivery_tag = method.delivery_tag
             self.ack(delivery_tag)
             if message.is_eof():
-                client_id = message.payload.data[CLIENT_ID]
+                client_id = message.client_id
                 self._count_eof[client_id] = self._count_eof.get(client_id, 0) + 1
                 if self._count_eof[client_id] == self._producers:
                     return on_producer_finished(message, delivery_tag)

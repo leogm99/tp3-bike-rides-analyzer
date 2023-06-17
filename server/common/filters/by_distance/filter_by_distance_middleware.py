@@ -7,11 +7,12 @@ METRICS_CONSUMER_ROUTING_KEY = 'metrics_consumer'
 
 
 class FilterByDistanceMiddleware(Middleware):
-    def __init__(self, hostname: str, producers: int):
+    def __init__(self, hostname: str, producers: int, node_id: int):
         super().__init__(hostname)
+        self._node_id = node_id
         self._input_queue = RabbitQueue(
             self._rabbit_connection,
-            queue_name=QUEUE_NAME,
+            queue_name=f"{QUEUE_NAME}_{node_id}",
             producers=producers,
         )
         self._output_exchange = RabbitExchange(

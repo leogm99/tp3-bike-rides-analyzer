@@ -1,5 +1,3 @@
-import logging
-
 from common.middleware.middleware import Middleware
 from common.rabbit.rabbit_exchange import RabbitExchange
 from common.rabbit.rabbit_queue import RabbitQueue
@@ -9,11 +7,12 @@ OUTPUT_ROUTING_KEY_PREFIX = lambda n: f'aggregate_trip_distance_{n}'
 
 
 class HaversineApplierMiddleware(Middleware):
-    def __init__(self, hostname: str, producers: int):
+    def __init__(self, hostname: str, producers: int, node_id: int):
         super().__init__(hostname)
+        self._node_id = node_id
         self._input_queue = RabbitQueue(
             self._rabbit_connection,
-            queue_name=QUEUE_NAME,
+            queue_name=f"{QUEUE_NAME}_{node_id}",
             producers=producers
         )
 

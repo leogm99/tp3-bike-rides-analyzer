@@ -11,15 +11,15 @@ FILTER_BY_CITY_ROUTING_KEY = 'filter_by_city_stations'
 
 
 class StationsConsumerMiddleware(Middleware):
-    def __init__(self, hostname, producers):
+    def __init__(self, hostname, producers, node_id: int):
         super(StationsConsumerMiddleware, self).__init__(hostname)
-
+        self._node_id = node_id
         self._input_queue = RabbitQueue(
             self._rabbit_connection,
-            queue_name=STATIONS_QUEUE_NAME,
+            queue_name=f"{STATIONS_QUEUE_NAME}_{node_id}",
             bind_exchange=DATA_EXCHANGE,
             bind_exchange_type=DATA_EXCHANGE_TYPE,
-            routing_key=STATIONS_QUEUE_NAME,
+            routing_key=f"{STATIONS_QUEUE_NAME}_{node_id}",
             producers=producers,
         )
 
@@ -39,5 +39,5 @@ class StationsConsumerMiddleware(Middleware):
     def send_joiner_message(self, message):
         super().send(message, self._joiner_exchange)
 
-    def send_filter_message(self, message):
-        super().send(message, self._filter_exchange, FILTER_BY_CITY_ROUTING_KEY)
+    def send_filter_message(self, message, routing_key_postfix):
+        super().send(message, self._filter_exchange, f"{FILTER_BY_CITY_ROUTING_KEY}_{routing_key_postfix}")

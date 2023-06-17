@@ -17,11 +17,11 @@ class LoaderMiddleware(Middleware):
             exchange_type=DATA_EXCHANGE_TYPE,
         )
 
-    def send_trips(self, message):
-        self._data_exchange.publish(message, routing_key=TRIPS_KEY)
+    def send_trips(self, message, routing_key_postfix):
+        self._data_exchange.publish(message, routing_key=f"{TRIPS_KEY}_{routing_key_postfix}")
 
-    def send_stations(self, message):
-        self._data_exchange.publish(message, routing_key=STATIONS_KEY)
+    def send_stations(self, message, routing_key_postfix):
+        self._data_exchange.publish(message, routing_key=f"{STATIONS_KEY}_{routing_key_postfix}")
 
-    def send_weather(self, message):
-        self._data_exchange.publish(message, routing_key=WEATHER_KEY)
+    def send_weather(self, message, routing_key_postfix):
+        self._data_exchange.publish(message, routing_key=f"{WEATHER_KEY}_{routing_key_postfix}")

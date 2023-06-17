@@ -10,6 +10,7 @@ FILTER_BY_DISTANCE_ROUTING_KEY = 'filter_by_distance'
 class AggregateTripDistanceMiddleware(Middleware):
     def __init__(self, hostname: str, producers: int, aggregate_id: int):
         super().__init__(hostname)
+        self._node_id = aggregate_id
         self._input_queue = RabbitQueue(
             self._rabbit_connection,
             queue_name=QUEUE_NAME_PREFIX(aggregate_id),
@@ -22,5 +23,5 @@ class AggregateTripDistanceMiddleware(Middleware):
     def receive_trips_distances(self, on_message_callback, on_end_message_callback):
         self._input_queue.consume(on_message_callback, on_end_message_callback)
 
-    def send_filter_message(self, message):
-        self._output_exchange.publish(message, routing_key=FILTER_BY_DISTANCE_ROUTING_KEY)
+    def send_filter_message(self, message, routing_key):
+        self._output_exchange.publish(message, routing_key=f"{FILTER_BY_DISTANCE_ROUTING_KEY}_{routing_key}")

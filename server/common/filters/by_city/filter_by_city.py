@@ -5,10 +5,11 @@ from common.filters.string_equality.string_equality import StringEquality
 from common_utils.protocol.message import Message, TRIPS, STATIONS, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
+ORIGIN_PREFIX = 'filter_by_city'
 
 class FilterByCity(StringEquality):
-    stations_output_fields = {'client_id', 'message_id', 'code', 'yearid', 'name', 'latitude', 'longitude'}
-    trips_output_fields = {'client_id', 'message_id', 'start_station_code', 'end_station_code', 'yearid'}
+    stations_output_fields = {'code', 'yearid', 'name', 'latitude', 'longitude'}
+    trips_output_fields = {'start_station_code', 'end_station_code', 'yearid'}
 
     def __init__(self,
                  filter_key: str,
@@ -48,21 +49,26 @@ class FilterByCity(StringEquality):
         raw_message = Protocol.serialize_message(message)
         self._middleware.send_stations_message(raw_message)
 
-    def __send_trips_message(self, message):
-        raw_message = Protocol.serialize_message(message)
-        self._middleware.send_trips_message(raw_message)
+    def __send_trips_message(self, message: Message):
+        if not message.is_eof():
+            routing_key = int(message.message_id) % self._trips_consumers
+            raw_msg = Protocol.serialize_message(message)
+            self._middleware.send_trips_message(raw_msg, routing_key)
+        else:
+            raw_msg = Protocol.serialize_message(message)
+            for i in range(self._trips_consumers):
+                self._middleware.send_trips_message(raw_msg, i)
 
     def on_producer_finished(self, message: Message, delivery_tag):
-        client_id = message.payload.data[CLIENT_ID]
+        client_id = message.client_id
         if message.is_type(STATIONS):
-            stations_eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id)
+            stations_eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
             self.__send_stations_message(stations_eof)
             self._middleware.cancel_consuming_stations()
         elif message.is_type(TRIPS):
-            trips_eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id)
-            for _ in range(self._trips_consumers):
-                self.__send_trips_message(trips_eof)
-            self._middleware.stop()
+            trips_eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+            self.__send_trips_message(trips_eof)
+            
 
     def close(self):
         if not self.closed:

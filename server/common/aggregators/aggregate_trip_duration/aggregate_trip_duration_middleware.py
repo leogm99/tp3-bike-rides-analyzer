@@ -9,6 +9,7 @@ METRICS_CONSUMER_ROUTING_KEY = 'metrics_consumer'
 class AggregateTripDurationMiddleware(Middleware):
     def __init__(self, hostname: str, producers: int, aggregate_id: int):
         super().__init__(hostname)
+        self._node_id = aggregate_id
         self._routing_key = ROUTING_KEY_PREFIX + f'_{aggregate_id}'
         self._input_queue = RabbitQueue(
             self._rabbit_connection,

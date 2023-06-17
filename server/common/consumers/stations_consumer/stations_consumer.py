@@ -5,10 +5,11 @@ from common.dag_node import DAGNode
 from common_utils.protocol.message import Message, STATIONS, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
+ORIGIN_PREFIX = 'stations_consumer'
 
 class StationsConsumer(DAGNode):
-    filter_by_city_fields = {'client_id', 'message_id', 'code', 'yearid', 'city', 'name', 'latitude', 'longitude'}
-    joiner_by_year_city_station_id_fields = {'client_id', 'message_id', 'code', 'city', 'yearid', 'name'}
+    filter_by_city_fields = {'code', 'yearid', 'city', 'name', 'latitude', 'longitude'}
+    joiner_by_year_city_station_id_fields = {'code', 'city', 'yearid', 'name'}
 
     def __init__(self, filter_by_city_consumers: int = 1,
                  middleware: StationsConsumerMiddleware = None):
@@ -39,16 +40,21 @@ class StationsConsumer(DAGNode):
 
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('received eof')
-        client_id = message.payload.data[CLIENT_ID]
-        eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id)
-        for _ in range(self._filter_consumers):
-            self.__send_message_to_filter_by_city(eof)
+        client_id = message.client_id
+        eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+        self.__send_message_to_filter_by_city(eof)
         self.__send_message_to_joiner_by_year_city_station_id(eof)
-        self._middleware.stop()
+        
 
     def __send_message_to_filter_by_city(self, message: Message):
-        raw_message = Protocol.serialize_message(message)
-        self._middleware.send_filter_message(raw_message)
+        if not message.is_eof():
+            routing_key = int(message.message_id) % self._filter_consumers
+            raw_msg = Protocol.serialize_message(message)
+            self._middleware.send_filter_message(raw_msg, routing_key)
+        else:
+            raw_msg = Protocol.serialize_message(message)
+            for i in range(self._filter_consumers):
+                self._middleware.send_filter_message(raw_msg, i)
 
     def __send_message_to_joiner_by_year_city_station_id(self, message: Message):
         raw_message = Protocol.serialize_message(message)

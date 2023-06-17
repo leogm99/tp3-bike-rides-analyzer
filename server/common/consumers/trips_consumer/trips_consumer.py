@@ -4,11 +4,12 @@ from common_utils.protocol.message import Message, TRIPS, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 import logging
 
+ORIGIN_PREFIX = 'trips_consumer'
 
 class TripsConsumer(DAGNode):
-    filter_by_city_fields = {'client_id', 'message_id', 'start_station_code', 'end_station_code', 'yearid', 'city'}
-    filter_by_year_fields = {'client_id', 'message_id', 'start_station_code', 'city', 'yearid'}
-    join_by_date_fields = {'client_id', 'message_id', 'start_date', 'duration_sec', 'city'}
+    filter_by_city_fields = {'start_station_code', 'end_station_code', 'yearid', 'city'}
+    filter_by_year_fields = {'start_station_code', 'city', 'yearid'}
+    join_by_date_fields = {'start_date', 'duration_sec', 'city'}
 
     def __init__(self,
                  filter_by_city_consumers: int = 1,
@@ -41,27 +42,39 @@ class TripsConsumer(DAGNode):
         self.__send_message_to_filter_by_city(filter_by_city_message)
 
     def on_producer_finished(self, message: Message, delivery_tag):
-        client_id = message.payload.data[CLIENT_ID]
-        eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id)
-        for _ in range(self._filter_by_year_consumers):
-            self.__send_message_to_filter_by_year(eof)
-        for _ in range(self._filter_by_city_consumers):
-            self.__send_message_to_filter_by_city(eof)
-        for _ in range(self._joiner_by_date_consumers):
-            self.__send_message_to_joiner_by_date(eof)
-        self._middleware.stop()
+        client_id = message.client_id
+        eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+        self.__send_message_to_filter_by_year(eof)
+        self.__send_message_to_filter_by_city(eof)
+        self.__send_message_to_joiner_by_date(eof)
+        
 
     def __send_message_to_filter_by_city(self, message: Message):
-        raw_message = Protocol.serialize_message(message)
-        self._middleware.send_filter_by_city_message(raw_message)
+        raw_msg = Protocol.serialize_message(message)
+        if not message.is_eof():
+            routing_key = int(message.message_id) % self._filter_by_city_consumers
+            self._middleware.send_filter_by_city_message(raw_msg, routing_key)
+        else:
+            for i in range(self._filter_by_city_consumers):
+                self._middleware.send_filter_by_city_message(raw_msg, i)
 
     def __send_message_to_filter_by_year(self, message: Message):
-        raw_message = Protocol.serialize_message(message)
-        self._middleware.send_filter_by_year_message(raw_message)
+        raw_msg = Protocol.serialize_message(message)
+        if not message.is_eof():
+            routing_key = int(message.message_id) % self._filter_by_year_consumers
+            self._middleware.send_filter_by_year_message(raw_msg, routing_key)
+        else:
+            for i in range(self._filter_by_year_consumers):
+                self._middleware.send_filter_by_year_message(raw_msg, i)
 
     def __send_message_to_joiner_by_date(self, message: Message):
-        raw_message = Protocol.serialize_message(message)
-        self._middleware.send_joiner_message(raw_message)
+        raw_msg = Protocol.serialize_message(message)
+        if not message.is_eof():
+            routing_key = int(message.message_id) % self._filter_by_year_consumers
+            self._middleware.send_joiner_message(raw_msg, routing_key)
+        else:
+            for i in range(self._joiner_by_date_consumers):
+                self._middleware.send_joiner_message(raw_msg, i)
 
     def close(self):
         if not self.closed:

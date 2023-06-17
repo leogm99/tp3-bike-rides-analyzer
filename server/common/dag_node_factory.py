@@ -31,6 +31,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = TripsConsumerMiddleware(
             hostname=config_params['rabbit_hostname'],
             producers=1,
+            node_id=int(os.getenv('ID', 0)),
         )
         return TripsConsumer(
             filter_by_city_consumers=int(config_params['filter_by_city_replicas']),
@@ -44,6 +45,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = StationsConsumerMiddleware(
             hostname=config_params['rabbit_hostname'],
             producers=1,
+            node_id=int(os.getenv('ID', 0)),
         )
         return StationsConsumer(
             filter_by_city_consumers=int(config_params['filter_by_city_replicas']),
@@ -55,6 +57,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = WeatherConsumerMiddleware(
             hostname=config_params['rabbit_hostname'],
             producers=1,
+            node_id=int(os.getenv('ID', 0)),
         )
         return WeatherConsumer(
             weather_consumers=int(config_params['filter_by_precipitation_replicas']),
@@ -65,7 +68,8 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         from common.filters.by_precipitation.filter_by_precipitation_middleware import FilterByPrecipitationMiddleware
         middleware = FilterByPrecipitationMiddleware(
             hostname=config_params['rabbit_hostname'],
-            producers=int(config_params['weather_consumer_replicas'])
+            producers=int(config_params['weather_consumer_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
         return FilterByPrecipitation(
             filter_key='prectot',
@@ -79,6 +83,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = FilterByYearMiddleware(
             hostname=config_params['rabbit_hostname'],
             producers=int(config_params['trips_consumer_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
         return FilterByYear(
             filter_key='yearid',
@@ -95,6 +100,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             hostname=config_params['rabbit_hostname'],
             trips_producers=int(config_params['trips_consumer_replicas']),
             stations_producers=int(config_params['stations_consumer_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
         return FilterByCity(
             filter_key='city',
@@ -108,6 +114,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = FilterByDistanceMiddleware(
             hostname=config_params['rabbit_hostname'],
             producers=int(config_params['aggregate_trip_distance_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
         return FilterByDistance(
             filter_key='distance',
@@ -122,6 +129,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = FilterByCountMiddleware(
             hostname=config_params['rabbit_hostname'],
             producers=int(config_params['aggregate_trip_count_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
         return FilterByCount(
             filter_key='year_2016',
@@ -138,6 +146,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             hostname=config_params['rabbit_hostname'],
             weather_producers=int(config_params['filter_by_precipitation_replicas']),
             trips_producers=int(config_params['trips_consumer_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
         return JoinByDate(
             index_key=('date', 'city',),
@@ -152,6 +161,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             hostname=config_params['rabbit_hostname'],
             stations_producers=int(config_params['stations_consumer_replicas']),
             trips_producers=int(config_params['filter_by_year_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
         return JoinByYearCityStationId(
             index_key=('code', 'city', 'yearid'),
@@ -166,6 +176,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             hostname=config_params['rabbit_hostname'],
             stations_producers=int(config_params['filter_by_city_replicas']),
             trips_producers=int(config_params['filter_by_city_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
 
         return JoinByYearEndStationId(
@@ -181,7 +192,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = AggregateTripDurationMiddleware(
             hostname=config_params['rabbit_hostname'],
             aggregate_id=int(os.getenv('ID', 0)),
-            producers=int(config_params['joiner_by_date_replicas'])
+            producers=int(config_params['joiner_by_date_replicas']),
         )
         return AggregateTripDuration(
             aggregate_keys=('date',),
@@ -224,6 +235,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         middleware = HaversineApplierMiddleware(
             hostname=config_params['rabbit_hostname'],
             producers=int(config_params['joiner_by_year_end_station_id_replicas']),
+            node_id=int(os.getenv('ID', 0)),
         )
         return HaversineApplier(
             start_latitude_key='start_station_latitude',

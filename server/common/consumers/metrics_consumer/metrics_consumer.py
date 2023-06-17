@@ -31,7 +31,6 @@ class MetricsConsumer(DAGNode):
         if message.is_eof():
             return
         client_id = self._get_client_id(message)
-        del message.payload.data[CLIENT_ID]
         self._metrics_by_client_id[client_id].append(message.message_type, message.payload.data)
 
     def on_producer_finished(self, message: Message, delivery_tag):
@@ -39,7 +38,7 @@ class MetricsConsumer(DAGNode):
         metrics = Message(message_type=METRICS, payload=Payload(data=self._metrics_by_client_id[client_id].getAll()))
         raw_metrics = Protocol.serialize_message(metrics)
         self._middleware.send_metrics_message(raw_metrics, client_id)
-        self._middleware.stop()
+        
 
     def close(self):
         if not self.closed:
@@ -47,7 +46,7 @@ class MetricsConsumer(DAGNode):
             self._middleware.stop()
 
     def _get_client_id(self, message: Message):
-        client_id = message.payload.data[CLIENT_ID]
+        client_id = message.client_id
         if client_id not in self._metrics_by_client_id:
             self._metrics_by_client_id[client_id] = KeyValueStore(defaultdict(list))
         return client_id

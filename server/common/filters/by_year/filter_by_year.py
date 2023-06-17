@@ -5,6 +5,7 @@ from common.filters.numeric_range.numeric_range import NumericRange
 from common_utils.protocol.message import Message, TRIPS, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
+ORIGIN_PREFIX = 'filter_by_year'
 
 class FilterByYear(NumericRange):
     def __init__(self,
@@ -35,16 +36,21 @@ class FilterByYear(NumericRange):
             self.__send_joiner_message(message_obj)
 
     def __send_joiner_message(self, message: Message):
-        raw_message = Protocol.serialize_message(message)
-        self._middleware.send_joiner_message(raw_message)
+        if not message.is_eof():
+            routing_key = int(message.message_id) % self._consumers
+            raw_msg = Protocol.serialize_message(message)
+            self._middleware.send_joiner_message(raw_msg, routing_key)
+        else:
+            raw_msg = Protocol.serialize_message(message)
+            for i in range(self._consumers):
+                self._middleware.send_joiner_message(raw_msg, i)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('action: on-producer-finished | received EOS')
-        client_id = message.payload.data[CLIENT_ID]
-        eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id)
-        for _ in range(self._consumers):
-            self.__send_joiner_message(eof)
-        self._middleware.stop()
+        client_id = message.client_id
+        eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+        self.__send_joiner_message(eof)
+        
 
     def close(self):
         if not self.closed:

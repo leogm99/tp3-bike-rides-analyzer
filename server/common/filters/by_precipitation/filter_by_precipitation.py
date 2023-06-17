@@ -5,6 +5,7 @@ from common.filters.numeric_range.numeric_range import NumericRange
 from common_utils.protocol.message import Message, WEATHER, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
+ORIGIN_PREFIX = 'filter_by_precipitation'
 
 class FilterByPrecipitation(NumericRange):
     def __init__(self,
@@ -34,12 +35,12 @@ class FilterByPrecipitation(NumericRange):
             self._middleware.send_joiner_message(raw_message)
 
     def on_producer_finished(self, message: Message, delivery_tag):
-        client_id = message.payload.data[CLIENT_ID]
-        eof = Message.build_eof_message(message_type=WEATHER, client_id=client_id)
+        client_id = message.client_id
+        eof = Message.build_eof_message(message_type=WEATHER, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
         raw_eof = Protocol.serialize_message(eof)
         for _ in range(self._weather_consumers):
             self._middleware.send_joiner_message(raw_eof)
-        self._middleware.stop()
+        
 
     def close(self):
         if not self.closed:

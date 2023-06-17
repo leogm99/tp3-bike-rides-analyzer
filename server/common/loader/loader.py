@@ -140,6 +140,7 @@ class Loader(DAGNode):
             self.close(client_socket, static_ack_waiter, metrics_waiter)
         except Exception as e:
             logging.info(f"Error: {e} | process_id: {process_id}")
+            logging.error(e, exc_info=1)
 
     def get_client_id(self):
         id = str(uuid.uuid4()) #16 bytes
@@ -167,24 +168,32 @@ class Loader(DAGNode):
             streamState.set_trips_eof()
         else:
             raise ValueError("Invalid type of data received")
-        eof = Message.build_eof_message(client_id=client_id)
-        for _ in range(replica_count):
-            send(Protocol.serialize_message(eof))
+        eof = Message.build_eof_message(message_type=eof_type, client_id=client_id)
+        for i in range(replica_count):
+            send(Protocol.serialize_message(eof), i)
 
     def __receive_client_message_and_publish(self, client_socket, streamState: StreamState):
         message = Protocol.receive_message(lambda n: recv_n_bytes(client_socket, n))
         if message.is_eof():
-            self.on_eof_threshold_reached(message.message_type, message.payload.data[CLIENT_ID], streamState)
+            self.on_eof_threshold_reached(message.message_type, message.client_id, streamState)
         else:
-            raw_message = Protocol.serialize_message(message)
+            module = None
+            send_to = None
             if message.is_type(TRIPS):
-                self._middleware.send_trips(raw_message)
+                module = self._trips_consumer_replica_count
+                send_to = self._middleware.send_trips
             elif message.is_type(STATIONS):
-                self._middleware.send_stations(raw_message)
+                module = self._stations_consumer_replica_count
+                send_to = self._middleware.send_stations
             elif message.is_type(WEATHER):
-                self._middleware.send_weather(raw_message)
+                module = self._weather_consumer_replica_count
+                send_to = self._middleware.send_weather
             else:
                 raise ValueError("Invalid type of data received")
+
+            routing_key = int(message.message_id) % module
+            raw_msg = Protocol.serialize_message(message)
+            send_to(raw_msg, routing_key)
 
     def close(self, client_socket, static_ack_waiter, metrics_waiter):
         logging.info(f'action: close | status: in-progress | process_id: {os.getpid()}')

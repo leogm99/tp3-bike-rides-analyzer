@@ -6,6 +6,7 @@ from common.filters.numeric_range.numeric_range import NumericRange
 from common_utils.protocol.message import Message, COUNT_METRIC, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 
+ORIGIN_PREFIX = 'filter_by_count'
 
 class FilterByCount(NumericRange):
     def __init__(self,
@@ -41,11 +42,11 @@ class FilterByCount(NumericRange):
             self._middleware.send_metrics_message(raw_message)
 
     def on_producer_finished(self, message: Message, delivery_tag):
-        client_id = message.payload.data[CLIENT_ID]
-        eof = Message.build_eof_message(message_type=COUNT_METRIC, client_id=client_id)
+        client_id = message.client_id
+        eof = Message.build_eof_message(message_type=COUNT_METRIC, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
         raw_eof = Protocol.serialize_message(eof)
         self._middleware.send_metrics_message(raw_eof)
-        self._middleware.stop()
+        
 
     def close(self):
         if not self.closed:

@@ -93,35 +93,33 @@ class Client:
                 data_path = city_paths[data_type]
                 with open(data_path, newline='') as source:
                     reader = csv.DictReader(f=source)
-                    Client.read_and_send_batched(reader, client_id, message_id, city, data_type, send_callback)
+                    message_id = Client.read_and_send_batched(reader, client_id, message_id, city, data_type, send_callback)
             Client.send_eof(client_id, data_type, send_callback)
         except BaseException:
             return
 
     @staticmethod
-    def send_eof(client_id, data_type, send_callback):
-        eof_data = {'type': data_type, 'payload': {'EOF': True, 'client_id': client_id}}
-        json_eof_data = json.dumps(eof_data)
-        send_string_message(send_callback, json_eof_data, 4)
+    def send_eof(client_id, message_type, send_callback):
+        msg = Message.build_eof_message(message_type=message_type, client_id=client_id)
+        Protocol.send_message(send_callback, msg)
 
     @staticmethod
     def read_and_send_batched(reader, client_id, message_id, city, data_type, send_callback, batch_size=BATCH_SIZE):
         send_buffer = []
         for row in reader:
-            row['client_id'] = client_id
-            row['message_id'] = str(message_id)
             row['city'] = city
             send_buffer.append(Payload(data=row))
             if len(send_buffer) == batch_size:
-                msg = Message(message_type=data_type, payload=send_buffer)
+                msg = Message(message_type=data_type, payload=send_buffer, message_id=message_id, client_id=client_id)
                 # throttle
                 sleep(0.001)
                 Protocol.send_message(send_callback, msg)
                 send_buffer = []
-            message_id += 1
+                message_id += 1
         if len(send_buffer) != 0:
-            msg = Message(message_type=data_type, payload=send_buffer)
+            msg = Message(message_type=data_type, payload=send_buffer, message_id=message_id)
             Protocol.send_message(send_callback, msg)
+        return message_id
 
     def __send_all_process_safe(self, payload):
         """Process safe send_all"""
