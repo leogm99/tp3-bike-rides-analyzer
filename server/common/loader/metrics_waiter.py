@@ -23,7 +23,7 @@ class MetricsWaiter(Thread):
         logging.info('action: receive-metrics | status: in progress')
         self._local_queue.put(message)
         logging.info('action: receive-metrics | status: success')
-        self.close()
+        return self.close
 
     def close(self):
         if not self._closed:
