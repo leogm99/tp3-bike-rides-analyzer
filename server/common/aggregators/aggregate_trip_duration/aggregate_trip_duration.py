@@ -37,18 +37,22 @@ class AggregateTripDuration(RollingAverageAggregator):
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')
         client_id = message.client_id
-        client_results: KeyValueStore = self._aggregate_table[client_id]
-        msg_id = 0
-        for k, v in client_results.items():
-            payload = Payload(data={'date': k, 'duration_sec': v.current_average})
-            msg = Message(message_type=DURATION_METRIC, 
-                          origin=f"f{ORIGIN}_{self._middleware._node_id}",
-                          message_id=msg_id,
-                          payload=payload, 
-                          client_id=message.client_id)
-            raw_msg = Protocol.serialize_message(msg)
-            self._middleware.send_metrics_message(raw_msg)
-            msg_id += 1
+        if client_id in self._aggregate_table:
+            client_results: KeyValueStore = self._aggregate_table[client_id]
+            logging.info(f'CLIENT RESULTS: {client_results}')
+            msg_id = 0
+            for k, v in client_results.items():
+                payload = Payload(data={'date': k, 'duration_sec': v.current_average})
+                msg = Message(message_type=DURATION_METRIC, 
+                            origin=f"f{ORIGIN}_{self._middleware._node_id}",
+                            message_id=msg_id,
+                            payload=payload, 
+                            client_id=message.client_id)
+                raw_msg = Protocol.serialize_message(msg)
+                self._middleware.send_metrics_message(raw_msg)
+                msg_id += 1
+        else:
+            logging.info(f'NO DATA FOR CLIENT ID: {client_id} |: {self._aggregate_table}')
         eof = Message.build_eof_message(message_type=DURATION_METRIC, 
                                         origin=f"f{ORIGIN}_{self._middleware._node_id}", 
                                         client_id=client_id)

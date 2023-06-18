@@ -116,7 +116,7 @@ class Client:
                 send_buffer = []
                 message_id += 1
         if len(send_buffer) != 0:
-            msg = Message(message_type=data_type, payload=send_buffer, message_id=message_id)
+            msg = Message(message_type=data_type, payload=send_buffer, message_id=message_id, client_id=client_id)
             Protocol.send_message(send_callback, msg)
         return message_id
 

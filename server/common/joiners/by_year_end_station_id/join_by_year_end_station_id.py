@@ -62,7 +62,7 @@ class JoinByYearEndStationId(Joiner):
             return
         buffer = self.join(message.payload, client_id=message.client_id)
         if buffer:
-            logging.info('could join')
+            #logging.info('could join')
             routing_key = int(message.message_id) % self._consumers
             msg = Message(message_type=NULL_TYPE,
                           message_id=message.message_id,

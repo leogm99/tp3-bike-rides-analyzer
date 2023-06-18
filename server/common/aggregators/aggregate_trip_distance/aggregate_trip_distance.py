@@ -38,19 +38,22 @@ class AggregateTripDistance(RollingAverageAggregator):
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')
         client_id = message.client_id
-        client_results: KeyValueStore = self._aggregate_table[client_id]
-        msg_id = 0
-        for k, v in client_results.items():
-            payload = Payload(data={'station': k, 'distance': v.current_average})
-            msg = Message(message_type=DISTANCE_METRIC, 
-                          message_id=msg_id,
-                          origin=f'{ORIGIN_PREFIX}_{self._middleware._node_id}',
-                          client_id=message.client_id,
-                          payload=payload)
-            routing_key = msg_id % self._consumers
-            raw_msg = Protocol.serialize_message(msg)
-            self._middleware.send_filter_message(raw_msg, routing_key)
-            msg_id += 1
+        if client_id in self._aggregate_table:
+            client_results: KeyValueStore = self._aggregate_table[client_id]
+            msg_id = 0
+            for k, v in client_results.items():
+                payload = Payload(data={'station': k, 'distance': v.current_average})
+                msg = Message(message_type=DISTANCE_METRIC, 
+                            message_id=msg_id,
+                            origin=f'{ORIGIN_PREFIX}_{self._middleware._node_id}',
+                            client_id=message.client_id,
+                            payload=payload)
+                routing_key = msg_id % self._consumers
+                raw_msg = Protocol.serialize_message(msg)
+                self._middleware.send_filter_message(raw_msg, routing_key)
+                msg_id += 1
+        else:
+            logging.info(f'NO DATA FOR CLIENT ID: {client_id} |: {self._aggregate_table}')
         eof = Message.build_eof_message(message_type=DISTANCE_METRIC, 
                                         origin=f'{ORIGIN_PREFIX}_{self._middleware._node_id}',
                                         client_id=client_id)
