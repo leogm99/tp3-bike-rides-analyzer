@@ -1,3 +1,5 @@
+import logging
+
 from abc import ABC
 from typing import Dict
 
@@ -27,18 +29,17 @@ class Joiner(DAGNode, ABC):
         return self.__join(payload, client_id)
 
     def insert_into_side_table(self, payload: Union[Payload, List[Payload]], save_key: str = '', client_id: str = None):
+        self._verify_client_id(client_id)
         if isinstance(payload, list):
             for obj in payload:
-                self._verify_client_id(client_id)
                 self.__insert_into_side_table(obj, save_key, client_id)
             return
-        self._verify_client_id(client_id)
         self.__insert_into_side_table(payload, save_key, client_id)
 
     def __join(self, payload: Payload, client_id: str = None):
         key = tuple(payload.data[i] for i in self._index_key)
         data = self._side_table[client_id].get(key)
-        if data != None:
+        if data is not None:
             return Payload(data=data | payload.data)
         return None
 

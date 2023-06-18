@@ -23,4 +23,4 @@ class MetricsConsumerMiddleware(Middleware):
         pass
 
     def send_metrics_message(self, message, client_id):
-        self._output_exchange.publish(message, routing_key=LOADER_ROUTING_KEY + '_' + client_id)
+        self._output_exchange.publish(message, routing_key=LOADER_ROUTING_KEY + '_' + str(client_id))

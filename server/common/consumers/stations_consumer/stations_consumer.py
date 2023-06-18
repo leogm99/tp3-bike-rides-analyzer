@@ -41,7 +41,9 @@ class StationsConsumer(DAGNode):
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('received eof')
         client_id = message.client_id
-        eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+        eof = Message.build_eof_message(message_type=STATIONS,
+                                        client_id=client_id,
+                                        origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
         self.__send_message_to_filter_by_city(eof)
         self.__send_message_to_joiner_by_year_city_station_id(eof)
         

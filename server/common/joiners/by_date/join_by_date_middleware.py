@@ -41,7 +41,7 @@ class JoinByDateMiddleware(Middleware):
         self._output_exchange.publish(message, routing_key=AGGREGATE_TRIP_DURATION_ROUTING_KEY(aggregator_id))
 
     def send_static_data_ack(self, ack, client_id):
-        self._output_exchange.publish(ack, routing_key=STATIC_DATA_ACK_ROUTING_KEY + '_' + client_id)
+        self._output_exchange.publish(ack, routing_key=STATIC_DATA_ACK_ROUTING_KEY + '_' + str(client_id))
 
     def cancel_consuming_weather(self):
         self._weather_date_input_queue.cancel()

@@ -36,6 +36,7 @@ class AggregateTripDistance(RollingAverageAggregator):
             self.aggregate(payload=obj, client_id=client_id)
 
     def on_producer_finished(self, message: Message, delivery_tag):
+        logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')
         client_id = message.client_id
         client_results: KeyValueStore = self._aggregate_table[client_id]
         msg_id = 0

@@ -62,12 +62,18 @@ class JoinByYearEndStationId(Joiner):
             return
         buffer = self.join(message.payload, client_id=message.client_id)
         if buffer:
-            msg = Message(message_type=NULL_TYPE, payload=buffer)
-            self.__send_message(msg)
+            logging.info('could join')
+            routing_key = int(message.message_id) % self._consumers
+            msg = Message(message_type=NULL_TYPE,
+                          message_id=message.message_id,
+                          client_id=message.client_id,
+                          origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}",
+                          payload=buffer)
+            self.__send_message(msg, routing_key)
 
-    def __send_message(self, message):
+    def __send_message(self, message, routing_key):
         raw_msg = Protocol.serialize_message(message)
-        self._middleware.send_haversine_message(raw_msg)
+        self._middleware.send_haversine_message(raw_msg, routing_key)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
@@ -79,8 +85,8 @@ class JoinByYearEndStationId(Joiner):
         elif message.is_type(TRIPS):
             logging.info(f'action: on-producer-finished | received END OF STREAM: {message}')
             eof = Message.build_eof_message(message_type='', client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
-            for _ in range(self._consumers):
-                self.__send_message(eof)
+            for i in range(self._consumers):
+                self.__send_message(eof, i)
             
 
     def close(self):

@@ -35,6 +35,7 @@ class MetricsConsumer(DAGNode):
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = self._get_client_id(message)
+        logging.info(f'sending metrics! {self._metrics_by_client_id[client_id].getAll()}')
         metrics = Message(message_type=METRICS, payload=Payload(data=self._metrics_by_client_id[client_id].getAll()))
         raw_metrics = Protocol.serialize_message(metrics)
         self._middleware.send_metrics_message(raw_metrics, client_id)

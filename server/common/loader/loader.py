@@ -140,7 +140,6 @@ class Loader(DAGNode):
             self.close(client_socket, static_ack_waiter, metrics_waiter)
         except Exception as e:
             logging.info(f"Error: {e} | process_id: {process_id}")
-            logging.error(e, exc_info=1)
 
     def get_client_id(self):
         id = str(uuid.uuid4()) #16 bytes
@@ -169,6 +168,7 @@ class Loader(DAGNode):
         else:
             raise ValueError("Invalid type of data received")
         eof = Message.build_eof_message(message_type=eof_type, client_id=client_id)
+        logging.info(f'sending {replica_count} eofs to: {eof_type}')
         for i in range(replica_count):
             send(Protocol.serialize_message(eof), i)
 

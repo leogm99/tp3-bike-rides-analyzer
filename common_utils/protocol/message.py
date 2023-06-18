@@ -71,9 +71,9 @@ class Message:
         raw_message = defaultdict()
         if self.message_id is not None: 
             raw_message[MESSAGE_ID_FIELD] = self.message_id
-        if self.origin: 
+        if self.origin is not None:
             raw_message[ORIGIN] = self.origin
-        if self.client_id:
+        if self.client_id is not None:
             raw_message[CLIENT_ID] = self.client_id
         if self.message_type != NULL_TYPE:
             raw_message[TYPE_FIELD] = self.message_type

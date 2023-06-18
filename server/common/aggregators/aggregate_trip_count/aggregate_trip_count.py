@@ -44,6 +44,7 @@ class AggregateTripCount(CountAggregator):
                 self.aggregate(payload=obj, client_id=client_id, year_2016=0, year_2017=1)
 
     def on_producer_finished(self, message: Message, delivery_tag):
+        logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')
         client_id = message.client_id
         client_results: KeyValueStore = self._aggregate_table[client_id]
         msg_id = 0
@@ -51,7 +52,7 @@ class AggregateTripCount(CountAggregator):
             payload = Payload(data={'station': k, 'year_2016': v['year_2016'], 'year_2017': v['year_2017']})
             msg = Message(message_type=NULL_TYPE, 
                           origin=f"{ORIGIN}_{self._middleware._node_id}",
-                          client_id=msg.client_id,
+                          client_id=message.client_id,
                           message_id=msg_id,
                           payload=payload)
             routing_key = msg_id % self._consumers
@@ -60,8 +61,8 @@ class AggregateTripCount(CountAggregator):
             msg_id += 1
         eof = Message.build_eof_message(client_id=client_id, origin=f"{ORIGIN}_{self._middleware._node_id}")
         raw_eof = Protocol.serialize_message(eof)
-        for _ in range(self._consumers):
-            self._middleware.send_filter_message(raw_eof)
+        for i in range(self._consumers):
+            self._middleware.send_filter_message(raw_eof, i)
         
 
     def close(self):

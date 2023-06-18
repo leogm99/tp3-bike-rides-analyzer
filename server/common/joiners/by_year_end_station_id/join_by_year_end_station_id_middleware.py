@@ -39,10 +39,10 @@ class JoinByYearEndStationIdMiddleware(Middleware):
         self._trips_input_queue.consume(on_message_callback, on_end_message_callback)
 
     def send_static_data_ack(self, ack, client_id):
-        self._output_exchange.publish(ack, routing_key=STATIC_DATA_ACK_ROUTING_KEY + '_' + client_id)
+        self._output_exchange.publish(ack, routing_key=STATIC_DATA_ACK_ROUTING_KEY + '_' + str(client_id))
 
-    def send_haversine_message(self, message):
-        self._output_exchange.publish(message, routing_key=HAVERSINE_APPLIER_ROUTING_KEY)
+    def send_haversine_message(self, message, routing_key):
+        self._output_exchange.publish(message, routing_key=HAVERSINE_APPLIER_ROUTING_KEY + '_' + str(routing_key))
 
     def cancel_consuming_stations(self):
         self._stations_input_queue.cancel()

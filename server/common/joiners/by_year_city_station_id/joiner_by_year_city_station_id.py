@@ -48,9 +48,13 @@ class JoinByYearCityStationId(Joiner):
             return
         join_data = self.join(message_obj.payload, client_id=message_obj.client_id)
         if join_data:
+            logging.info('could join')
             hashes = self.hash_message(message=join_data, hashing_key='name', hash_modulo=self._consumers)
             for routing_key_suffix, obj in hashes.items():
-                msg = Message(message_type=NULL_TYPE, payload=obj)
+                msg = Message(message_type=NULL_TYPE,
+                              client_id=message_obj.client_id,
+                              origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}",
+                              payload=obj)
                 raw_msg = Protocol.serialize_message(msg)
                 self._middleware.send_aggregate_message(raw_msg, routing_key_suffix)
 

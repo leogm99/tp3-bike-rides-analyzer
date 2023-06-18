@@ -3,7 +3,6 @@ import os
 import socket
 import logging
 import signal
-import json
 from multiprocessing import Process, Lock
 from common.utils import get_file_paths_by_city_and_type
 from typing import Dict

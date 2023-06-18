@@ -44,7 +44,11 @@ class HaversineApplier(Applier):
             obj.data['distance'] = distance_calculated
             obj.pick_payload_fields(self.output_fields)
             new_payload.append(obj)
-        msg = Message(message_type=NULL_TYPE, payload=new_payload)
+        msg = Message(message_type=NULL_TYPE, 
+                      origin=f"ORIGIN_PREFIX_{self._middleware._node_id}",
+                      client_id=message.client_id,
+                      message_id=message.message_id,
+                      payload=new_payload)
         self.__send_message(msg)
 
     def on_producer_finished(self, message: Message, delivery_tag):
@@ -60,7 +64,10 @@ class HaversineApplier(Applier):
     def __send_message(self, message: Message):
         hashes = self.hash_message(message.payload, hashing_key='end_station_name', hash_modulo=self._consumers)
         for routing_key, buffer in hashes.items():
-            msg = Message(message_type=NULL_TYPE, payload=buffer)
+            msg = Message(message_type=NULL_TYPE, 
+                          client_id=message.client_id,
+                          origin=message.origin,
+                          payload=buffer)
             raw_msg = Protocol.serialize_message(msg)
             self._middleware.send_aggregator_message(raw_msg, routing_key)
 
