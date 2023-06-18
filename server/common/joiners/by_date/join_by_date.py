@@ -72,7 +72,6 @@ class JoinByDate(Joiner):
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
         if message.is_type(WEATHER):
-            self._middleware.cancel_consuming_weather()
             ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id))
             self._middleware.send_static_data_ack(ack, client_id)
         if message.is_type(TRIPS):

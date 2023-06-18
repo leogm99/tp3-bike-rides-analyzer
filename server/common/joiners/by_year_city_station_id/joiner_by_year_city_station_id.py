@@ -61,7 +61,6 @@ class JoinByYearCityStationId(Joiner):
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
         if message.is_type(STATIONS):
-            self._middleware.cancel_consuming_stations()
             ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id))
             self._middleware.send_static_data_ack(ack, client_id)
             logging.info(f'action: on-producer-finished | len-keys: {len(self._side_table.keys())}')

@@ -64,7 +64,6 @@ class FilterByCity(StringEquality):
         if message.is_type(STATIONS):
             stations_eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
             self.__send_stations_message(stations_eof)
-            self._middleware.cancel_consuming_stations()
         elif message.is_type(TRIPS):
             trips_eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
             self.__send_trips_message(trips_eof)

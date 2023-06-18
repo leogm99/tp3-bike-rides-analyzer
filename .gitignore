@@ -1,4 +1,5 @@
 **/**data
 **/**.idea
 **/**.env
+**/**output
 docker-compose-client.yml

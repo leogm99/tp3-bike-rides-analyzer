@@ -4,7 +4,8 @@ from common.rabbit.rabbit_queue import RabbitQueue
 
 WEATHER_EXCHANGE_NAME = 'join_by_date_weather'
 WEATHER_EXCHANGE_TYPE = 'fanout'
-QUEUE_NAME = 'join_by_date'
+WEATHER_QUEUE_NAME_PREFIX = 'join_by_date_weather'
+TRIPS_QUEUE_NAME = 'join_by_date'
 STATIC_DATA_ACK_ROUTING_KEY = 'static_data_ack'
 AGGREGATE_TRIP_DURATION_ROUTING_KEY = lambda n: f'aggregate_trip_duration_{n}'
 
@@ -15,7 +16,7 @@ class JoinByDateMiddleware(Middleware):
         self._node_id = node_id
         self._weather_date_input_queue = RabbitQueue(
             self._rabbit_connection,
-            queue_name='',
+            queue_name=f"{WEATHER_QUEUE_NAME_PREFIX}_{node_id}",
             bind_exchange=WEATHER_EXCHANGE_NAME,
             bind_exchange_type=WEATHER_EXCHANGE_TYPE,
             producers=weather_producers,
@@ -23,7 +24,7 @@ class JoinByDateMiddleware(Middleware):
 
         self._trips_input_queue = RabbitQueue(
             self._rabbit_connection,
-            queue_name=f"{QUEUE_NAME}_{node_id}",
+            queue_name=f"{TRIPS_QUEUE_NAME}_{node_id}",
             producers=trips_producers,
         )
 

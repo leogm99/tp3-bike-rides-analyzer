@@ -1,5 +1,5 @@
 
-class StreamState():
+class StreamState:
     def __init__(self):
         self._weather_eof = False
         self._stations_eof = False

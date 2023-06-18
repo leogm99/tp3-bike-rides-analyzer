@@ -4,7 +4,8 @@ from common.rabbit.rabbit_queue import RabbitQueue
 
 STATIONS_EXCHANGE = 'join_by_year_city_station_id_stations'
 STATIONS_EXCHANGE_TYPE = 'fanout'
-QUEUE_NAME = 'joiner_by_year_city_station_id'
+STATIONS_QUEUE_NAME_PREFIX = 'join_by_year_city_station_id_stations'
+TRIPS_QUEUE_NAME = 'joiner_by_year_city_station_id'
 STATIC_DATA_ACK_ROUTING_KEY = 'static_data_ack'
 AGGREGATE_TRIP_COUNT_ROUTING_KEY = lambda n: f'aggregate_trip_count_{n}'
 
@@ -19,13 +20,14 @@ class JoinByYearCityStationIdMiddleware(Middleware):
         self._node_id = node_id
         self._stations_input_queue = RabbitQueue(
             self._rabbit_connection,
+            queue_name=f"{STATIONS_QUEUE_NAME_PREFIX}_{node_id}",
             bind_exchange=STATIONS_EXCHANGE,
             bind_exchange_type=STATIONS_EXCHANGE_TYPE,
             producers=stations_producers,
         )
         self._trips_input_queue = RabbitQueue(
             self._rabbit_connection,
-            queue_name=f"{QUEUE_NAME}_{node_id}",
+            queue_name=f"{TRIPS_QUEUE_NAME}_{node_id}",
             producers=trips_producers,
         )
         self._output_exchange = RabbitExchange(

@@ -10,7 +10,7 @@ DATA=$1
 echo "version: '3'
 services:
   client:
-    container_name: client
+    # container_name: client
     image: client:latest
     entrypoint: python /main.py
     environment:
@@ -26,6 +26,9 @@ services:
       - type: bind
         source: ./client/config.ini
         target: /config.ini
+    deploy:
+      mode: replicated
+      replicas: 5
     restart: on-failure" > docker-compose-client.yml
 
 docker build -f ./client/Dockerfile -t "client:latest" .

@@ -1,18 +1,6 @@
 import threading
 
-
-class Singleton(type):
-    _instance = None
-    _lock = threading.Lock()
-
-    def __call__(cls, *args, **kwargs):
-        with cls._lock:
-            if not cls._instance:
-                cls._instance = super().__call__(*args, **kwargs)
-        return cls._instance
-
-
-class ClientManager(metaclass=Singleton):
+class ClientManager:
     def __init__(self, max_clients=5):
         self._l = threading.Lock()
         self._condition = threading.Condition(self._l)

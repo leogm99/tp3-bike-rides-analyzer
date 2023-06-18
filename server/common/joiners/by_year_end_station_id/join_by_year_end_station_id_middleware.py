@@ -3,6 +3,7 @@ from common.rabbit.rabbit_exchange import RabbitExchange
 from common.rabbit.rabbit_queue import RabbitQueue
 
 QUEUE_NAME_TRIPS = 'joiner_by_year_end_station_id'
+STATIONS_QUEUE_NAME_PREFIX = 'joiner_by_year_end_station_id_stations'
 
 FILTER_BY_CITY_STATIONS_EXCHANGE = 'filter_by_city_stations_output'
 FILTER_BY_CITY_STATIONS_EXCHANGE_TYPE = 'fanout'
@@ -17,6 +18,7 @@ class JoinByYearEndStationIdMiddleware(Middleware):
         self._node_id = node_id
         self._stations_input_queue = RabbitQueue(
             self._rabbit_connection,
+            queue_name=f"{STATIONS_QUEUE_NAME_PREFIX}_{node_id}",
             bind_exchange=FILTER_BY_CITY_STATIONS_EXCHANGE,
             bind_exchange_type=FILTER_BY_CITY_STATIONS_EXCHANGE_TYPE,
             producers=stations_producers,
