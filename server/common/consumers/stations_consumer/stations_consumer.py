@@ -29,7 +29,7 @@ class StationsConsumer(DAGNode):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def on_message_callback(self, message_obj: Message, _delivery_tag):
+    def on_message_callback(self, message_obj: Message, delivery_tag):
         if message_obj.is_eof():
             return
         filter_by_city_message = message_obj.pick_payload_fields(self.filter_by_city_fields)
@@ -37,6 +37,7 @@ class StationsConsumer(DAGNode):
             self.joiner_by_year_city_station_id_fields)
         self.__send_message_to_filter_by_city(filter_by_city_message)
         self.__send_message_to_joiner_by_year_city_station_id(joiner_by_year_city_station_id_message)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('received eof')

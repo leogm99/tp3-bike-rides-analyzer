@@ -32,6 +32,7 @@ class MetricsConsumer(DAGNode):
             return
         client_id = self._get_client_id(message)
         self._metrics_by_client_id[client_id].append(message.message_type, message.payload.data)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = self._get_client_id(message)

@@ -38,3 +38,6 @@ class TripsConsumerMiddleware(Middleware):
 
     def send_filter_by_year_message(self, message, routing_key_postfix):
         super().send(message, self._output_exchange, f"{FILTER_BY_YEAR_ROUTING_KEY}_{routing_key_postfix}")
+
+    def ack_message(self, delivery_tag):
+        self._input_queue.ack(delivery_tag)

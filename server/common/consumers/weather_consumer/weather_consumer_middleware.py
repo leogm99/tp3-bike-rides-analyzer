@@ -30,3 +30,6 @@ class WeatherConsumerMiddleware(Middleware):
 
     def send_to_filter(self, message, routing_key_postfix):
         self._output_exchange.publish(message, routing_key=f"{FILTER_BY_PRECIPITATION_ROUTING_KEY}_{routing_key_postfix}")
+
+    def ack_message(self, delivery_tag):
+        self._weather_queue.ack(delivery_tag)

@@ -25,3 +25,6 @@ class FilterByYearMiddleware(Middleware):
 
     def send_joiner_message(self, message, routing_key_postfix):
         self._output_exchange.publish(message, routing_key=f"{JOINER_BY_YEAR_CITY_STATION_ID_ROUTING_KEY}_{routing_key_postfix}")
+    
+    def ack_message(self, delivery_tag):
+        self._input_queue.ack(delivery_tag)

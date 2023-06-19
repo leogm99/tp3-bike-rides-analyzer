@@ -5,15 +5,16 @@ from typing import Union
 
 
 class RabbitBlockingConnection:
-    def __init__(self, rabbit_hostname):
+    def __init__(self, rabbit_hostname, prefetch_count: int = 50):
         self._conn = pika.BlockingConnection(
             pika.ConnectionParameters(
                 host=rabbit_hostname,
                 heartbeat=1000  # Higher than default heartbeat to avoid connection shutdown
             )
         )
+        self._prefetch_count = prefetch_count
         self._channel = self._conn.channel()
-        self._channel.basic_qos(prefetch_count=50)
+        self._channel.basic_qos(prefetch_count=self._prefetch_count)
         self._closed = False
         self._consuming = False
 
@@ -70,3 +71,6 @@ class RabbitBlockingConnection:
             if self._consuming:
                 self._channel.stop_consuming()
             self._conn.close()
+    
+    def get_prefetch_count(self):
+        return self._prefetch_count

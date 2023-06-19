@@ -19,11 +19,13 @@ class MetricsWaiter(Thread):
             if not self._closed:
                 raise e from e
 
-    def __receive_metrics(self, message, _delivery_tag):
+    def __receive_metrics(self, message, delivery_tag):
         logging.info('action: receive-metrics | status: in progress')
         self._local_queue.put(message)
         logging.info('action: receive-metrics | status: success')
+        self._middleware.ack_metrics(delivery_tag)
         return self.close
+
 
     def close(self):
         if not self._closed:

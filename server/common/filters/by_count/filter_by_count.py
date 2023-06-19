@@ -32,6 +32,7 @@ class FilterByCount(NumericRange):
             return
         # filter data that has no counts the previous year
         if message_obj.payload.data['year_2016'] == 0:
+            self._middleware.ack_message(delivery_tag)
             return
         # trips_2017 > 2*trips_2016 <-> trips_2017/2 > trips_2016
         self.high = float(message_obj.payload.data['year_2017']) / 2
@@ -40,6 +41,7 @@ class FilterByCount(NumericRange):
             obj.message_type = COUNT_METRIC
             raw_message = Protocol.serialize_message(obj)
             self._middleware.send_metrics_message(raw_message)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id

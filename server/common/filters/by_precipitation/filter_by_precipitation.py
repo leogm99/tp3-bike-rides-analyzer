@@ -28,11 +28,12 @@ class FilterByPrecipitation(NumericRange):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def on_message_callback(self, message: Message, _delivery_tag):
-        to_send, message_obj = super(FilterByPrecipitation, self).on_message_callback(message, _delivery_tag)
+    def on_message_callback(self, message: Message, delivery_tag):
+        to_send, message_obj = super(FilterByPrecipitation, self).on_message_callback(message, delivery_tag)
         if to_send:
             raw_message = Protocol.serialize_message(message_obj)
             self._middleware.send_joiner_message(raw_message)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id

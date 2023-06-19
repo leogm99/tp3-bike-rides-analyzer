@@ -5,7 +5,6 @@ from common_utils.protocol.protocol import Protocol
 from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 from common_utils.protocol.message import CLIENT_ID
 from common_utils.KeyValueStore import KeyValueStore
-import random
 
 SNAPSHOT_EOF = 'snapshot_eof'
 
@@ -50,7 +49,10 @@ class RabbitQueue:
                     ret_call()
             else:
                 ret_call = on_message_callback(message, delivery_tag)
-                self.ack(delivery_tag)
+                # TODO: hacer el ack desde la capa de negocio a través del middleware
+                #       esto es en TODOS los nodos
+                #       la idea es que los acks de la capa de arriba puedan ser acumulados (buffering)
+                #self.ack(delivery_tag)
                 if ret_call is not None:
                     ret_call()
                 # TODO
@@ -67,4 +69,6 @@ class RabbitQueue:
     def ack(self, delivery_tag):
         self._rabbit_connection.ack(delivery_tag=delivery_tag)
 
+    def get_prefetch_count(self):
+        return self._rabbit_connection.get_prefetch_count()
 

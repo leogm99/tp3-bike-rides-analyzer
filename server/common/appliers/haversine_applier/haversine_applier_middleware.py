@@ -25,3 +25,6 @@ class HaversineApplierMiddleware(Middleware):
 
     def send_aggregator_message(self, message, aggregator_id):
         self._output_exchange.publish(message, routing_key=OUTPUT_ROUTING_KEY_PREFIX(aggregator_id))
+
+    def ack_message(self, delivery_tag):
+        self._input_queue.ack(delivery_tag)

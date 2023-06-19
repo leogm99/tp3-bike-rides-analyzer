@@ -34,6 +34,8 @@ class JoinByYearCityStationIdMiddleware(Middleware):
             self._rabbit_connection
         )
 
+        self._stations_delivery_tags = []
+
     def receive_stations(self, on_message_callback, on_end_message_callback):
         self._stations_input_queue.consume(on_message_callback, on_end_message_callback)
 
@@ -48,3 +50,15 @@ class JoinByYearCityStationIdMiddleware(Middleware):
 
     def send_aggregate_message(self, message, aggregate_id):
         self._output_exchange.publish(message, routing_key=AGGREGATE_TRIP_COUNT_ROUTING_KEY(aggregate_id))
+
+    def ack_trip(self, trip_delivery_tag):
+        self._trips_input_queue.ack(trip_delivery_tag)
+
+    def ack_stations(self):
+        for delivery_tag in self._stations_delivery_tags:
+            self._stations_input_queue.ack(delivery_tag)
+        self._stations_delivery_tags = []
+
+    def save_stations_delivery_tag(self, stations_delivery_tag):
+        self._stations_delivery_tags.append(stations_delivery_tag)
+        return len(self._stations_delivery_tags) == self._stations_input_queue.get_prefetch_count()

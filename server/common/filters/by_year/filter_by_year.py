@@ -28,12 +28,13 @@ class FilterByYear(NumericRange):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def on_message_callback(self, message, _delivery_tag):
+    def on_message_callback(self, message, delivery_tag):
         if message.is_eof():
             return
-        to_send, message_obj = super(FilterByYear, self).on_message_callback(message, _delivery_tag)
+        to_send, message_obj = super(FilterByYear, self).on_message_callback(message, delivery_tag)
         if to_send:
             self.__send_joiner_message(message_obj)
+        self._middleware.ack_message(delivery_tag)
 
     def __send_joiner_message(self, message: Message):
         if not message.is_eof():

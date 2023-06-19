@@ -26,3 +26,6 @@ class AggregateTripDurationMiddleware(Middleware):
     def send_metrics_message(self, message):
         self._output_exchange.publish(message, routing_key=METRICS_CONSUMER_ROUTING_KEY)
 
+    def ack_message(self, delivery_tag):
+        self._input_queue.ack(delivery_tag)
+

@@ -5,9 +5,11 @@ from common.joiners.by_year_end_station_id.join_by_year_end_station_id_middlewar
     JoinByYearEndStationIdMiddleware
 from common.joiners.joiner import Joiner
 
+from collections import defaultdict
 from common_utils.protocol.message import Message, TRIPS, STATIONS, NULL_TYPE, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
 from common_utils.protocol.payload import Payload
+from common_utils.KeyValueStore import KeyValueStore
 
 ORIGIN_PREFIX = 'joiner_by_year_end_station_id'
 
@@ -22,6 +24,7 @@ class JoinByYearEndStationId(Joiner):
 
     def run(self):
         try:
+            self._side_table = KeyValueStore.loads(f"{ORIGIN_PREFIX}_{self._middleware._node_id}", default_type=defaultdict(dict))
             self._middleware.receive_stations(self.on_message_callback, self.on_producer_finished)
             self._middleware.receive_trips(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
@@ -55,14 +58,14 @@ class JoinByYearEndStationId(Joiner):
         return buffer
 
     def on_message_callback(self, message, delivery_tag):
-        if message.is_eof():
-            return
         if message.is_type(STATIONS):
             self.insert_into_side_table(message.payload, client_id=message.client_id)
+            if self._middleware.save_stations_delivery_tag(delivery_tag):
+                self._side_table.dumps(f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+                self._middleware.ack_stations()
             return
         buffer = self.join(message.payload, client_id=message.client_id)
         if buffer:
-            #logging.info('could join')
             routing_key = int(message.message_id) % self._consumers
             msg = Message(message_type=NULL_TYPE,
                           message_id=message.message_id,
@@ -70,6 +73,7 @@ class JoinByYearEndStationId(Joiner):
                           origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}",
                           payload=buffer)
             self.__send_message(msg, routing_key)
+        self._middleware.ack_trip(delivery_tag)
 
     def __send_message(self, message, routing_key):
         raw_msg = Protocol.serialize_message(message)
@@ -78,9 +82,10 @@ class JoinByYearEndStationId(Joiner):
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
         if message.is_type(STATIONS):
-            ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id))
+            self._side_table.dumps(f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+            ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}"))
             self._middleware.send_static_data_ack(ack, client_id)
-            logging.info(f'action: on-producer-finished | len-keys: {len(self._side_table.keys())}')
+            self._middleware.ack_stations()
         elif message.is_type(TRIPS):
             logging.info(f'action: on-producer-finished | received END OF STREAM: {message}')
             eof = Message.build_eof_message(message_type='', client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")

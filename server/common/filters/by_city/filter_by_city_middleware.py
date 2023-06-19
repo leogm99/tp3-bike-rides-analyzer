@@ -49,3 +49,9 @@ class FilterByCityMiddleware(Middleware):
 
     def cancel_consuming_stations(self):
         self._stations_input_queue.cancel()
+
+    def ack_stations_message(self, delivery_tag):
+        self._stations_input_queue.ack(delivery_tag)
+
+    def ack_trips_message(self, delivery_tag):
+        self._trips_input_queue.ack(delivery_tag)

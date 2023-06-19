@@ -33,6 +33,7 @@ class AggregateTripDuration(RollingAverageAggregator):
         for obj in message.payload:
             obj.data['duration_sec'] = max(float(obj.data['duration_sec']), 0.)
             super(AggregateTripDuration, self).aggregate(payload=obj, client_id=client_id)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')

@@ -25,3 +25,6 @@ class AggregateTripCountMiddleware(Middleware):
 
     def send_filter_message(self, message, routing_key):
         self._output_exchange.publish(message, routing_key=f"{FILTER_BY_COUNT_ROUTING_KEY}_{routing_key}")
+
+    def ack_message(self, delivery_tag):
+        self._input_queue.ack(delivery_tag)

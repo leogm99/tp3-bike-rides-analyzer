@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import ast
 
 
 '''
@@ -41,6 +42,12 @@ class KeyValueStore:
     def dumps(self, snapshot_name):
         with RenamedTemporaryFile(snapshot_name, delete=False) as f:
             f.write(json.dumps(self._memtable).encode())
+    '''
+    def dumps_tuple_keys(self, snapshot_name):
+        data_str_keys = {str(key): value for key, value in self._memtable.items()}
+        with RenamedTemporaryFile(snapshot_name, delete=False) as f:
+            f.write(json.dumps(data_str_keys).encode())
+    '''
         
     @staticmethod
     def loads(snapshot_name, default_type):
@@ -51,7 +58,17 @@ class KeyValueStore:
             return kv_store
         except BaseException as e:
             return kv_store 
-
+    ''' 
+    @staticmethod
+    def loads_tuple_keys(snapshot_name, default_type):
+        kv_store = KeyValueStore(dict_type=default_type)
+        try:
+            with open(snapshot_name, 'r') as f:
+                kv_store._memtable = json.loads(f.read())
+            return kv_store
+        except BaseException as e:
+            return kv_store 
+    '''
 
 # https://stackoverflow.com/a/12007885
 class RenamedTemporaryFile(object):

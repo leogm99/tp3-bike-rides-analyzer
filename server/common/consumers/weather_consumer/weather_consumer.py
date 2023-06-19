@@ -25,11 +25,12 @@ class WeatherConsumer(DAGNode):
             if not self.closed:
                 raise e from e
 
-    def on_message_callback(self, message_obj: Message, _delivery_tag):
+    def on_message_callback(self, message_obj: Message, delivery_tag):
         if message_obj.is_eof():
             return
         filter_by_precipitation_message = message_obj.pick_payload_fields(self.filter_by_precipitation_fields)
         self.__send_message_to_filter_by_precipitation(filter_by_precipitation_message)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('received eof')

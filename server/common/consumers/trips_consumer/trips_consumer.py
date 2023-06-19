@@ -31,7 +31,7 @@ class TripsConsumer(DAGNode):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def on_message_callback(self, message_obj: Message, _delivery_tag: int):
+    def on_message_callback(self, message_obj: Message, delivery_tag: int):
         if message_obj.is_eof():
             return
         filter_by_year_message = message_obj.pick_payload_fields(self.filter_by_year_fields)
@@ -40,6 +40,7 @@ class TripsConsumer(DAGNode):
         self.__send_message_to_filter_by_year(filter_by_year_message)
         self.__send_message_to_joiner_by_date(join_by_date_message)
         self.__send_message_to_filter_by_city(filter_by_city_message)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id

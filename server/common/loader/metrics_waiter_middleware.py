@@ -14,3 +14,6 @@ class MetricsWaiterMiddleware(Middleware):
 
     def receive_metrics(self, on_message_callback, on_end_message_callback):
         self._input_queue.consume(on_message_callback, on_end_message_callback)
+    
+    def ack_metrics(self, delivery_tag):
+        self._input_queue.ack(delivery_tag)

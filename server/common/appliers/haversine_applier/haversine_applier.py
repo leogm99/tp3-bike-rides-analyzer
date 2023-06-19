@@ -50,6 +50,7 @@ class HaversineApplier(Applier):
                       message_id=message.message_id,
                       payload=new_payload)
         self.__send_message(msg)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id

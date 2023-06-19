@@ -32,6 +32,8 @@ class JoinByDateMiddleware(Middleware):
             self._rabbit_connection,
         )
 
+        self._weather_delivery_tags = []
+
     def receive_weather(self, on_message_callback, on_end_message_callback):
         self._weather_date_input_queue.consume(on_message_callback, on_end_message_callback)
 
@@ -46,3 +48,15 @@ class JoinByDateMiddleware(Middleware):
 
     def cancel_consuming_weather(self):
         self._weather_date_input_queue.cancel()
+
+    def ack_trip(self, trip_delivery_tag):
+        self._trips_input_queue.ack(trip_delivery_tag)
+
+    def ack_weathers(self):
+        for delivery_tag in self._weather_delivery_tags:
+            self._weather_date_input_queue.ack(delivery_tag)
+        self._weather_delivery_tags = []
+
+    def save_weather_delivery_tag(self, weather_delivery_tag):
+        self._weather_delivery_tags.append(weather_delivery_tag)
+        return len(self._weather_delivery_tags) == self._weather_date_input_queue.get_prefetch_count()

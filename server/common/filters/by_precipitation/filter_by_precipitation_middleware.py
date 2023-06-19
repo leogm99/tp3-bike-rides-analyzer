@@ -27,3 +27,6 @@ class FilterByPrecipitationMiddleware(Middleware):
 
     def send_joiner_message(self, message):
         self._output_exchange.publish(message)
+
+    def ack_message(self, delivery_tag):
+        self._input_queue.ack(delivery_tag)

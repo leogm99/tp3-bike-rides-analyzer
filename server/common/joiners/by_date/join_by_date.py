@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import defaultdict
 from typing import Tuple
 from datetime import datetime, timedelta
 
@@ -7,6 +8,7 @@ from common.joiners.by_date.join_by_date_middleware import JoinByDateMiddleware
 from common.joiners.joiner import Joiner
 from common_utils.protocol.message import Message, TRIPS, WEATHER, NULL_TYPE, CLIENT_ID
 from common_utils.protocol.protocol import Protocol
+from common_utils.KeyValueStore import KeyValueStore
 
 DELTA_CORRECTION = timedelta(days=1)
 ORIGIN_PREFIX = 'join_by_date'
@@ -22,6 +24,7 @@ class JoinByDate(Joiner):
 
     def run(self):
         try:
+            self._side_table = KeyValueStore.loads(f"{ORIGIN_PREFIX}_{self._middleware._node_id}", default_type=defaultdict(dict))
             self._middleware.receive_weather(self.on_message_callback, self.on_producer_finished)
             self._middleware.receive_trips(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
@@ -43,18 +46,18 @@ class JoinByDate(Joiner):
         return join_data
 
     def on_message_callback(self, message: Message, delivery_tag):
-        if message.is_eof():
-            return
         if message.is_type(WEATHER):
             for obj in message.payload:
                 weather_date = datetime.strptime(obj.data['date'], "%Y-%m-%d") - DELTA_CORRECTION
                 obj.data['date'] = weather_date.strftime('%Y-%m-%d')
                 self.insert_into_side_table(obj, save_key='date', client_id=message.client_id)
+            if self._middleware.save_weather_delivery_tag(delivery_tag):
+                self._side_table.dumps(f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+                self._middleware.ack_weathers()
             return
         try:
             join_data = self.join(message.payload, message.client_id)
             if join_data:
-                #logging.info('could join')
                 hashes = self.hash_message(message=join_data, hashing_key='date', hash_modulo=self._consumers)
                 for routing_key_postfix, message_buffer in hashes.items():
                     msg = Message(message_type=NULL_TYPE,
@@ -65,6 +68,7 @@ class JoinByDate(Joiner):
                     raw_msg = Protocol.serialize_message(msg)
                     self._middleware.send_aggregator_message(raw_msg,
                                                              routing_key_postfix)
+            self._middleware.ack_trip(delivery_tag)
         except BaseException as e:
             logging.error(f'action: on-message-callback | result: failed | reason {e}')
             raise e from e
@@ -72,8 +76,10 @@ class JoinByDate(Joiner):
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
         if message.is_type(WEATHER):
-            ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id))
+            self._side_table.dumps(f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+            ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}"))
             self._middleware.send_static_data_ack(ack, client_id)
+            self._middleware.ack_weathers()
         if message.is_type(TRIPS):
             eof = Message.build_eof_message(message_type='', client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
             raw_eof = Protocol.serialize_message(eof)

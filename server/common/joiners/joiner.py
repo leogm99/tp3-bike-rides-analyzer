@@ -1,7 +1,7 @@
 import logging
 
 from abc import ABC
-from typing import Dict
+from collections import defaultdict
 
 from common.dag_node import DAGNode
 from typing import Tuple, List, Union
@@ -16,7 +16,7 @@ class Joiner(DAGNode, ABC):
                  index_key: Tuple[str, ...]):
         super().__init__()
         self._index_key = tuple(sorted(index_key))
-        self._side_table: Dict[str, KeyValueStore] = {}
+        self._side_table: KeyValueStore = KeyValueStore(dict_type=defaultdict(dict))
 
     def join(self, payload, client_id: str = None):
         if isinstance(payload, list):
@@ -29,7 +29,6 @@ class Joiner(DAGNode, ABC):
         return self.__join(payload, client_id)
 
     def insert_into_side_table(self, payload: Union[Payload, List[Payload]], save_key: str = '', client_id: str = None):
-        self._verify_client_id(client_id)
         if isinstance(payload, list):
             for obj in payload:
                 self.__insert_into_side_table(obj, save_key, client_id)
@@ -37,7 +36,7 @@ class Joiner(DAGNode, ABC):
         self.__insert_into_side_table(payload, save_key, client_id)
 
     def __join(self, payload: Payload, client_id: str = None):
-        key = tuple(payload.data[i] for i in self._index_key)
+        key = str(tuple(payload.data[i] for i in self._index_key))
         data = self._side_table[client_id].get(key)
         if data is not None:
             return Payload(data=data | payload.data)
@@ -48,8 +47,4 @@ class Joiner(DAGNode, ABC):
         data = {k: v for k, v in payload.data.items() if
                                  k not in self._index_key} if save_key == '' else \
             {save_key: payload.data[save_key]}
-        self._side_table[client_id].put(key, data)
-    
-    def _verify_client_id(self, client_id):
-        if client_id not in self._side_table:
-            self._side_table[client_id] = KeyValueStore()
+        self._side_table[client_id].update({str(key): data})

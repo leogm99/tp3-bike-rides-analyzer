@@ -42,6 +42,8 @@ class AggregateTripCount(CountAggregator):
                 self.aggregate(payload=obj, client_id=client_id, year_2016=1, year_2017=0)
             elif year == 2017:
                 self.aggregate(payload=obj, client_id=client_id, year_2016=0, year_2017=1)
+        # TODO: ARREGLAR XD
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')

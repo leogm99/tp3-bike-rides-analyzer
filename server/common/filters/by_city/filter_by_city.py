@@ -33,10 +33,10 @@ class FilterByCity(StringEquality):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def on_message_callback(self, message, _delivery_tag):
+    def on_message_callback(self, message, delivery_tag):
         if message.is_eof():
             return
-        to_send, message_obj = super(FilterByCity, self).on_message_callback(message, _delivery_tag)
+        to_send, message_obj = super(FilterByCity, self).on_message_callback(message, delivery_tag)
         if to_send:
             if message.is_type(STATIONS):
                 message_obj = message_obj.pick_payload_fields(self.stations_output_fields)
@@ -44,6 +44,10 @@ class FilterByCity(StringEquality):
             elif message.is_type(TRIPS):
                 message_obj = message_obj.pick_payload_fields(self.trips_output_fields)
                 self.__send_trips_message(message_obj)
+        if message.is_type(STATIONS):
+            self._middleware.ack_stations_message(delivery_tag)
+        elif message.is_type(TRIPS):
+            self._middleware.ack_trips_message(delivery_tag)
 
     def __send_stations_message(self, message):
         raw_message = Protocol.serialize_message(message)

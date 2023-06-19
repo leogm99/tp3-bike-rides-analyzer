@@ -25,14 +25,15 @@ class FilterByDistance(NumericRange):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def on_message_callback(self, message, _delivery_tag):
+    def on_message_callback(self, message, delivery_tag):
         if message.is_eof():
             return
-        to_send, message_obj = super(FilterByDistance, self).on_message_callback(message, _delivery_tag)
+        to_send, message_obj = super(FilterByDistance, self).on_message_callback(message, delivery_tag)
         if to_send:
             message_obj.message_type = DISTANCE_METRIC
             raw_msg = Protocol.serialize_message(message_obj)
             self._middleware.send_metrics_message(raw_msg)
+        self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
