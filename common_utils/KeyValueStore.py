@@ -11,6 +11,7 @@ import ast
 class KeyValueStore:
     def __init__(self, dict_type={}):
         self._memtable = dict_type
+        self._default = dict_type
 
     def get(self, key, default=None):
         return self._memtable.get(key, default)
@@ -54,7 +55,8 @@ class KeyValueStore:
         kv_store = KeyValueStore(dict_type=default_type)
         try:
             with open(snapshot_name, 'r') as f:
-                kv_store._memtable = json.loads(f.read())
+                load_data = json.loads(f.read())
+                kv_store._memtable.update(load_data)
             return kv_store
         except BaseException as e:
             return kv_store 
