@@ -11,7 +11,9 @@ x-node: &node
     - type: bind
       source: ./server/config.ini
       target: /config.ini
-  restart: on-failure
+    - type: bind
+      source: ./server/hosts.txt
+      target: /hosts.txt
 
 services:
   rabbit:
@@ -35,7 +37,7 @@ services:
       - NODE_NAME=METRICS_CONSUMER
       - FILTER_BY_COUNT_REPLICAS=1
       - FILTER_BY_DISTANCE_REPLICAS=1
-      - AGGREGATE_TRIP_DURATION_REPLICAS=5
+      - AGGREGATE_TRIP_DURATION_REPLICAS=1
     depends_on:
       - rabbit 
 
@@ -45,53 +47,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_DISTANCE
-      - HAVERSINE_APPLIER_REPLICAS=3
+      - HAVERSINE_APPLIER_REPLICAS=1
       - FILTER_BY_DISTANCE_REPLICAS=1
       - ID=0
-    depends_on:
-      - filter_by_distance_0
-  aggregate_trip_distance_1:
-    <<: *node
-    image: aggregate_trip_distance:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_DISTANCE
-      - HAVERSINE_APPLIER_REPLICAS=3
-      - FILTER_BY_DISTANCE_REPLICAS=1
-      - ID=1
-    depends_on:
-      - filter_by_distance_0
-  aggregate_trip_distance_2:
-    <<: *node
-    image: aggregate_trip_distance:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_DISTANCE
-      - HAVERSINE_APPLIER_REPLICAS=3
-      - FILTER_BY_DISTANCE_REPLICAS=1
-      - ID=2
-    depends_on:
-      - filter_by_distance_0
-  aggregate_trip_distance_3:
-    <<: *node
-    image: aggregate_trip_distance:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_DISTANCE
-      - HAVERSINE_APPLIER_REPLICAS=3
-      - FILTER_BY_DISTANCE_REPLICAS=1
-      - ID=3
-    depends_on:
-      - filter_by_distance_0
-  aggregate_trip_distance_4:
-    <<: *node
-    image: aggregate_trip_distance:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_DISTANCE
-      - HAVERSINE_APPLIER_REPLICAS=3
-      - FILTER_BY_DISTANCE_REPLICAS=1
-      - ID=4
     depends_on:
       - filter_by_distance_0
 
@@ -101,52 +59,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_DURATION
-      - JOINER_BY_DATE_REPLICAS=2
+      - JOINER_BY_DATE_REPLICAS=1
       - ID=0
-    depends_on:
-      - metrics_consumer
-
-  aggregate_trip_duration_1:
-    <<: *node
-    image: aggregate_trip_duration:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_DURATION
-      - JOINER_BY_DATE_REPLICAS=2
-      - ID=1
-    depends_on:
-      - metrics_consumer
-
-  aggregate_trip_duration_2:
-    <<: *node
-    image: aggregate_trip_duration:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_DURATION
-      - JOINER_BY_DATE_REPLICAS=2
-      - ID=2
-    depends_on:
-      - metrics_consumer
-
-  aggregate_trip_duration_3:
-    <<: *node
-    image: aggregate_trip_duration:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_DURATION
-      - JOINER_BY_DATE_REPLICAS=2
-      - ID=3
-    depends_on:
-      - metrics_consumer
-
-  aggregate_trip_duration_4:
-    <<: *node
-    image: aggregate_trip_duration:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_DURATION
-      - JOINER_BY_DATE_REPLICAS=2
-      - ID=4
     depends_on:
       - metrics_consumer
 
@@ -156,53 +70,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
       - FILTER_BY_COUNT_REPLICAS=1
       - ID=0
-    depends_on:
-      - filter_by_count_0
-  aggregate_trip_count_1:
-    <<: *node
-    image: aggregate_trip_count:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - FILTER_BY_COUNT_REPLICAS=1
-      - ID=1
-    depends_on:
-      - filter_by_count_0
-  aggregate_trip_count_2:
-    <<: *node
-    image: aggregate_trip_count:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - FILTER_BY_COUNT_REPLICAS=1
-      - ID=2
-    depends_on:
-      - filter_by_count_0
-  aggregate_trip_count_3:
-    <<: *node
-    image: aggregate_trip_count:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - FILTER_BY_COUNT_REPLICAS=1
-      - ID=3
-    depends_on:
-      - filter_by_count_0
-  aggregate_trip_count_4:
-    <<: *node
-    image: aggregate_trip_count:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=AGGREGATE_TRIP_COUNT
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - FILTER_BY_COUNT_REPLICAS=1
-      - ID=4
     depends_on:
       - filter_by_count_0
 
@@ -212,48 +82,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=HAVERSINE_APPLIER
-      - HAVERSINE_APPLIER_REPLICAS=3
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
-      - AGGREGATE_TRIP_DISTANCE_REPLICAS=5
+      - HAVERSINE_APPLIER_REPLICAS=1
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=1
+      - AGGREGATE_TRIP_DISTANCE_REPLICAS=1
       - ID=0
     depends_on:
       - aggregate_trip_distance_0
-      - aggregate_trip_distance_1
-      - aggregate_trip_distance_2
-      - aggregate_trip_distance_3
-      - aggregate_trip_distance_4
-  haversine_applier_1:
-    <<: *node
-    image: haversine_applier:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=HAVERSINE_APPLIER
-      - HAVERSINE_APPLIER_REPLICAS=3
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
-      - AGGREGATE_TRIP_DISTANCE_REPLICAS=5
-      - ID=1
-    depends_on:
-      - aggregate_trip_distance_0
-      - aggregate_trip_distance_1
-      - aggregate_trip_distance_2
-      - aggregate_trip_distance_3
-      - aggregate_trip_distance_4
-  haversine_applier_2:
-    <<: *node
-    image: haversine_applier:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=HAVERSINE_APPLIER
-      - HAVERSINE_APPLIER_REPLICAS=3
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
-      - AGGREGATE_TRIP_DISTANCE_REPLICAS=5
-      - ID=2
-    depends_on:
-      - aggregate_trip_distance_0
-      - aggregate_trip_distance_1
-      - aggregate_trip_distance_2
-      - aggregate_trip_distance_3
-      - aggregate_trip_distance_4
 
   joiner_by_year_city_station_id_0:
     <<: *node
@@ -262,31 +96,11 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=JOINER_BY_YEAR_CITY_STATION_ID
       - STATIONS_CONSUMER_REPLICAS=1
-      - FILTER_BY_YEAR_REPLICAS=5
-      - AGGREGATE_TRIP_COUNT_REPLICAS=5
+      - FILTER_BY_YEAR_REPLICAS=1
+      - AGGREGATE_TRIP_COUNT_REPLICAS=1
       - ID=0
     depends_on:
       - aggregate_trip_count_0
-      - aggregate_trip_count_1
-      - aggregate_trip_count_2
-      - aggregate_trip_count_3
-      - aggregate_trip_count_4
-  joiner_by_year_city_station_id_1:
-    <<: *node
-    image: joiner_by_year_city_station_id:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=JOINER_BY_YEAR_CITY_STATION_ID
-      - STATIONS_CONSUMER_REPLICAS=1
-      - FILTER_BY_YEAR_REPLICAS=5
-      - AGGREGATE_TRIP_COUNT_REPLICAS=5
-      - ID=1
-    depends_on:
-      - aggregate_trip_count_0
-      - aggregate_trip_count_1
-      - aggregate_trip_count_2
-      - aggregate_trip_count_3
-      - aggregate_trip_count_4
 
   joiner_by_date_0:
     <<: *node
@@ -295,31 +109,11 @@ services:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=JOINER_BY_DATE
       - FILTER_BY_PRECIPITATION_REPLICAS=1
-      - TRIPS_CONSUMER_REPLICAS=2
-      - AGGREGATE_TRIP_DURATION_REPLICAS=5
+      - TRIPS_CONSUMER_REPLICAS=1
+      - AGGREGATE_TRIP_DURATION_REPLICAS=1
       - ID=0
     depends_on:
       - aggregate_trip_duration_0
-      - aggregate_trip_duration_1
-      - aggregate_trip_duration_2
-      - aggregate_trip_duration_3
-      - aggregate_trip_duration_4
-  joiner_by_date_1:
-    <<: *node
-    image: joiner_by_date:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=JOINER_BY_DATE
-      - FILTER_BY_PRECIPITATION_REPLICAS=1
-      - TRIPS_CONSUMER_REPLICAS=2
-      - AGGREGATE_TRIP_DURATION_REPLICAS=5
-      - ID=1
-    depends_on:
-      - aggregate_trip_duration_0
-      - aggregate_trip_duration_1
-      - aggregate_trip_duration_2
-      - aggregate_trip_duration_3
-      - aggregate_trip_duration_4
 
   joiner_by_year_end_station_id_0:
     <<: *node
@@ -327,26 +121,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=JOINER_BY_YEAR_END_STATION_ID
-      - FILTER_BY_CITY_REPLICAS=5
-      - HAVERSINE_APPLIER_REPLICAS=3
+      - FILTER_BY_CITY_REPLICAS=1
+      - HAVERSINE_APPLIER_REPLICAS=1
       - ID=0
     depends_on:
       - haversine_applier_0
-      - haversine_applier_1
-      - haversine_applier_2
-  joiner_by_year_end_station_id_1:
-    <<: *node
-    image: joiner_by_year_end_station_id:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=JOINER_BY_YEAR_END_STATION_ID
-      - FILTER_BY_CITY_REPLICAS=5
-      - HAVERSINE_APPLIER_REPLICAS=3
-      - ID=1
-    depends_on:
-      - haversine_applier_0
-      - haversine_applier_1
-      - haversine_applier_2
 
   filter_by_count_0:
     <<: *node
@@ -354,7 +133,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_COUNT
-      - AGGREGATE_TRIP_COUNT_REPLICAS=5
+      - AGGREGATE_TRIP_COUNT_REPLICAS=1
       - ID=0
     depends_on:
       - metrics_consumer
@@ -365,7 +144,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_DISTANCE
-      - AGGREGATE_TRIP_DISTANCE_REPLICAS=5
+      - AGGREGATE_TRIP_DISTANCE_REPLICAS=1
       - ID=0
     depends_on:
       - rabbit
@@ -376,65 +155,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_CITY
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
+      - TRIPS_CONSUMER_REPLICAS=1
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=1
       - STATIONS_CONSUMER_REPLICAS=1
       - ID=0
     depends_on:
       - joiner_by_year_end_station_id_0
-      - joiner_by_year_end_station_id_1
-  filter_by_city_1:
-    <<: *node
-    image: filter_by_city:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=FILTER_BY_CITY
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
-      - STATIONS_CONSUMER_REPLICAS=1
-      - ID=1
-    depends_on:
-      - joiner_by_year_end_station_id_0
-      - joiner_by_year_end_station_id_1
-  filter_by_city_2:
-    <<: *node
-    image: filter_by_city:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=FILTER_BY_CITY
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
-      - STATIONS_CONSUMER_REPLICAS=1
-      - ID=2
-    depends_on:
-      - joiner_by_year_end_station_id_0
-      - joiner_by_year_end_station_id_1
-  filter_by_city_3:
-    <<: *node
-    image: filter_by_city:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=FILTER_BY_CITY
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
-      - STATIONS_CONSUMER_REPLICAS=1
-      - ID=3
-    depends_on:
-      - joiner_by_year_end_station_id_0
-      - joiner_by_year_end_station_id_1
-  filter_by_city_4:
-    <<: *node
-    image: filter_by_city:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=FILTER_BY_CITY
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
-      - STATIONS_CONSUMER_REPLICAS=1
-      - ID=4
-    depends_on:
-      - joiner_by_year_end_station_id_0
-      - joiner_by_year_end_station_id_1
 
   filter_by_precipitation_0:
     <<: *node
@@ -446,7 +172,6 @@ services:
       - ID=0
     depends_on:  
       - joiner_by_date_0
-      - joiner_by_date_1
 
   filter_by_year_0:
     <<: *node
@@ -454,60 +179,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=FILTER_BY_YEAR
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
+      - TRIPS_CONSUMER_REPLICAS=1
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
       - ID=0
     depends_on:
       - joiner_by_year_city_station_id_0
-      - joiner_by_year_city_station_id_1
-  filter_by_year_1:
-    <<: *node
-    image: filter_by_year:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=FILTER_BY_YEAR
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - ID=1
-    depends_on:
-      - joiner_by_year_city_station_id_0
-      - joiner_by_year_city_station_id_1
-  filter_by_year_2:
-    <<: *node
-    image: filter_by_year:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=FILTER_BY_YEAR
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - ID=2
-    depends_on:
-      - joiner_by_year_city_station_id_0
-      - joiner_by_year_city_station_id_1
-  filter_by_year_3:
-    <<: *node
-    image: filter_by_year:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=FILTER_BY_YEAR
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - ID=3
-    depends_on:
-      - joiner_by_year_city_station_id_0
-      - joiner_by_year_city_station_id_1
-  filter_by_year_4:
-    <<: *node
-    image: filter_by_year:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - NODE_NAME=FILTER_BY_YEAR
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - ID=4
-    depends_on:
-      - joiner_by_year_city_station_id_0
-      - joiner_by_year_city_station_id_1
 
   weather_consumer_0:
     <<: *node
@@ -526,16 +202,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NODE_NAME=STATIONS_CONSUMER
-      - FILTER_BY_CITY_REPLICAS=5
+      - FILTER_BY_CITY_REPLICAS=1
       - ID=0
     depends_on:
       - filter_by_city_0
-      - filter_by_city_1
-      - filter_by_city_2
-      - filter_by_city_3
-      - filter_by_city_4
       - joiner_by_year_city_station_id_0
-      - joiner_by_year_city_station_id_1
 
   trips_consumer_0:
     <<: *node
@@ -545,48 +216,14 @@ services:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
       - NODE_NAME=TRIPS_CONSUMER
-      - FILTER_BY_CITY_REPLICAS=5
-      - FILTER_BY_YEAR_REPLICAS=5
-      - JOINER_BY_DATE_REPLICAS=2
+      - FILTER_BY_CITY_REPLICAS=1
+      - FILTER_BY_YEAR_REPLICAS=1
+      - JOINER_BY_DATE_REPLICAS=1
       - ID=0
     depends_on:
       - filter_by_city_0
-      - filter_by_city_1
-      - filter_by_city_2
-      - filter_by_city_3
-      - filter_by_city_4
       - filter_by_year_0
-      - filter_by_year_1
-      - filter_by_year_2
-      - filter_by_year_3
-      - filter_by_year_4
       - joiner_by_date_0
-      - joiner_by_date_1
-  trips_consumer_1:
-    <<: *node
-    image: trips_consumer:latest
-    entrypoint: python /main.py
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
-      - NODE_NAME=TRIPS_CONSUMER
-      - FILTER_BY_CITY_REPLICAS=5
-      - FILTER_BY_YEAR_REPLICAS=5
-      - JOINER_BY_DATE_REPLICAS=2
-      - ID=1
-    depends_on:
-      - filter_by_city_0
-      - filter_by_city_1
-      - filter_by_city_2
-      - filter_by_city_3
-      - filter_by_city_4
-      - filter_by_year_0
-      - filter_by_year_1
-      - filter_by_year_2
-      - filter_by_year_3
-      - filter_by_year_4
-      - joiner_by_date_0
-      - joiner_by_date_1
 
   loader:
     <<: *node
@@ -598,16 +235,57 @@ services:
       - NODE_NAME=LOADER
       - STATIONS_CONSUMER_REPLICAS=1
       - WEATHER_CONSUMER_REPLICAS=1
-      - TRIPS_CONSUMER_REPLICAS=2
-      - JOINER_BY_DATE_REPLICAS=2
-      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=2
-      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=2
+      - TRIPS_CONSUMER_REPLICAS=1
+      - JOINER_BY_DATE_REPLICAS=1
+      - JOINER_BY_YEAR_CITY_STATION_ID_REPLICAS=1
+      - JOINER_BY_YEAR_END_STATION_ID_REPLICAS=1
       - MAX_CLIENTS=1
       - PORT=8888
     ports:
       - "8888:8888"
     depends_on:
       - trips_consumer_0
-      - trips_consumer_1
       - stations_consumer_0
       - weather_consumer_0
+
+  watcher_0:
+    <<: *node
+    image: watcher:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+      - type: bind
+        source: ./server/hosts.txt
+        target: /hosts.txt
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=WATCHER
+      - ID=0
+    depends_on:
+      - loader
+
+
+  watcher_1:
+    <<: *node
+    image: watcher:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
+      - type: bind
+        source: ./server/hosts.txt
+        target: /hosts.txt
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NODE_NAME=WATCHER
+      - ID=1
+    depends_on:
+      - loader
+

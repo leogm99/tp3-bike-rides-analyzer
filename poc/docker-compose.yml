@@ -1,0 +1,83 @@
+version: '3.9'
+services:
+  bully0:
+    image: bully-poc:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=0
+      - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=5
+
+  bully1:
+    image: bully-poc:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=1
+      - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=5
+
+  bully2:
+    image: bully-poc:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=2
+      - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=5
+
+  bully3:
+    image: bully-poc:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=3
+      - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=5
+
+  bully4:
+    image: bully-poc:latest
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - bully-net
+    environment:
+      - REPLICA_ID=4
+      - PYTHONUNBUFFERED=1
+      - BULLY_PORT=12345
+      - HEALTHCHECK_PORT=54321
+      - WATCHER_TIMEOUT_SECS=5
+
+networks:
+  bully-net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24

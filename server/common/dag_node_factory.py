@@ -259,4 +259,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
         return MetricsConsumer(
             middleware=middleware,
         )
+    elif node_name == 'WATCHER':
+        from common.watchers.watcher import Watcher
+        return Watcher(watcher_id=int(os.getenv('ID')))
     raise ValueError("Unknown node name")

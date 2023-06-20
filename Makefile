@@ -31,6 +31,8 @@ docker-image:
 
 	docker build -f ./server/common/appliers/Dockerfile -t "applier:latest" .
 	docker build -f ./server/common/appliers/haversine_applier/Dockerfile -t "haversine_applier:latest" .
+
+	docker build -f ./server/common/watchers/Dockerfile -t "watcher:latest" .
 .PHONY: docker-image
 
 docker-compose-up: docker-image
