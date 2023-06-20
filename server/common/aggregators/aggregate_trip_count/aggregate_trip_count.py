@@ -1,5 +1,6 @@
 import logging
 
+from common.aggregators.aggregator import Aggregator
 from common.aggregators.aggregate_trip_count.aggregate_trip_count_middleware import AggregateTripCountMiddleware
 from common.aggregators.count_aggregator.count_aggregator import CountAggregator
 from typing import Tuple
@@ -32,6 +33,11 @@ class AggregateTripCount(CountAggregator):
 
     def on_message_callback(self, message, delivery_tag):
         client_id = message.client_id
+        message_id = message.message_id
+        if Aggregator.was_message_processed(self._aggregate_table, message_id, client_id):
+            logging.info('action: on_message_callback | message: message {message_id} from client {client_id} was already processed, ignoring')
+            self._middleware.ack_message(delivery_tag)
+            return
         for obj in message.payload:
             try:
                 year = int(obj.data['yearid'])
@@ -42,14 +48,20 @@ class AggregateTripCount(CountAggregator):
                 self.aggregate(payload=obj, client_id=client_id, year_2016=1, year_2017=0)
             elif year == 2017:
                 self.aggregate(payload=obj, client_id=client_id, year_2016=0, year_2017=1)
-        # TODO: ARREGLAR XD
-        self._middleware.ack_message(delivery_tag)
+        Aggregator.register_message_processed(self._aggregate_table, message_id, client_id)
+        if self._middleware.save_delivery_tag(delivery_tag):
+            # atomic
+            self._aggregate_table.dumps(f"aggregate_table.json")
+            self._middleware.ack_all()
 
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')
+        # first we dump the table
+        self._aggregate_table.dumps(f"aggregate_table.json")
+
         client_id = message.client_id
         if client_id in self._aggregate_table:
-            client_results: KeyValueStore = self._aggregate_table[client_id]
+            client_results: KeyValueStore = self._aggregate_table[client_id]['data']
             msg_id = 0
             for k, v in client_results.items():
                 payload = Payload(data={'station': k, 'year_2016': v['year_2016'], 'year_2017': v['year_2017']})
@@ -68,6 +80,18 @@ class AggregateTripCount(CountAggregator):
         raw_eof = Protocol.serialize_message(eof)
         for i in range(self._consumers):
             self._middleware.send_filter_message(raw_eof, i)
+
+        # after sending everything, we ack all messages
+        self._middleware.ack_all()
+
+        # NOW we can erase this client data (we no longer need it!!)
+        # as we can only receive eofs for this client id
+        # if another eof arrives (duplicated), then now data will be sent for that client
+        # as it was previously sent
+        if client_id in self._aggregate_table:
+            self._aggregate_table.delete(client_id)
+        # on the next flush, the json file will be truncated
+        
         
 
     def close(self):

@@ -55,7 +55,10 @@ class JoinByYearCityStationId(Joiner):
         if join_data:
             hashes = self.hash_message(message=join_data, hashing_key='name', hash_modulo=self._consumers)
             for routing_key_suffix, obj in hashes.items():
+                if not obj:
+                    continue
                 msg = Message(message_type=NULL_TYPE,
+                              message_id=message_obj.message_id,
                               client_id=message_obj.client_id,
                               origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}",
                               payload=obj)

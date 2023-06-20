@@ -60,6 +60,8 @@ class JoinByDate(Joiner):
             if join_data:
                 hashes = self.hash_message(message=join_data, hashing_key='date', hash_modulo=self._consumers)
                 for routing_key_postfix, message_buffer in hashes.items():
+                    if not message_buffer:
+                        continue
                     msg = Message(message_type=NULL_TYPE,
                                   client_id=message.client_id,
                                   message_id=message.message_id,

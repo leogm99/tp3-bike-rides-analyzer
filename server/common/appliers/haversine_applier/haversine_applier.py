@@ -65,7 +65,10 @@ class HaversineApplier(Applier):
     def __send_message(self, message: Message):
         hashes = self.hash_message(message.payload, hashing_key='end_station_name', hash_modulo=self._consumers)
         for routing_key, buffer in hashes.items():
+            if not buffer:
+                continue
             msg = Message(message_type=NULL_TYPE, 
+                          message_id=message.message_id,
                           client_id=message.client_id,
                           origin=message.origin,
                           payload=buffer)

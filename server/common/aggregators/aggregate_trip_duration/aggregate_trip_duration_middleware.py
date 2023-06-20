@@ -20,6 +20,8 @@ class AggregateTripDurationMiddleware(Middleware):
             self._rabbit_connection,
         )
 
+        self._delivery_tags = []
+
     def receive_trip_duration(self, on_message_callback, on_end_message_callback):
         self._input_queue.consume(on_message_callback, on_end_message_callback)
 
@@ -28,4 +30,13 @@ class AggregateTripDurationMiddleware(Middleware):
 
     def ack_message(self, delivery_tag):
         self._input_queue.ack(delivery_tag)
+
+    def ack_all(self):
+        for delivery_tag in self._delivery_tags:
+            self.ack_message(delivery_tag)
+        self._delivery_tags = []
+
+    def save_delivery_tag(self, delivery_tag):
+        self._delivery_tags.append(delivery_tag)
+        return len(self._delivery_tags) == self._input_queue.get_prefetch_count()
 

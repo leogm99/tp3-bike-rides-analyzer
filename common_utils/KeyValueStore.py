@@ -1,12 +1,15 @@
 import json
 import os
 import tempfile
-import ast
+from collections import defaultdict
 
 
-'''
-{'client_id': ['origin', '...'] }
-'''
+# para poder encodear sets en json
+class SetEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        return json.JSONEncoder.default(self, obj)
 
 class KeyValueStore:
     def __init__(self, dict_type={}):
@@ -34,6 +37,9 @@ class KeyValueStore:
     def _nuke(self):
         self._memtable = {}
 
+    def delete(self, key):
+        del self._memtable[key]
+
     def __getitem__(self, key):
         return self._memtable[key]
 
@@ -42,35 +48,24 @@ class KeyValueStore:
 
     def dumps(self, snapshot_name):
         with RenamedTemporaryFile(snapshot_name, delete=False) as f:
-            f.write(json.dumps(self._memtable).encode())
-    '''
-    def dumps_tuple_keys(self, snapshot_name):
-        data_str_keys = {str(key): value for key, value in self._memtable.items()}
-        with RenamedTemporaryFile(snapshot_name, delete=False) as f:
-            f.write(json.dumps(data_str_keys).encode())
-    '''
-        
+            f.write(json.dumps(self._memtable, cls=SetEncoder).encode())
+    
+    def __contains__(self, item):
+        return item in self._memtable
+
     @staticmethod
-    def loads(snapshot_name, default_type):
+    def loads(snapshot_name, default_type=defaultdict(), parsing_func=None):
         kv_store = KeyValueStore(dict_type=default_type)
         try:
             with open(snapshot_name, 'r') as f:
                 load_data = json.loads(f.read())
-                kv_store._memtable.update(load_data)
+                if parsing_func:
+                    kv_store._memtable = parsing_func(load_data)
+                else:
+                    kv_store._memtable.update(load_data)
             return kv_store
         except BaseException as e:
             return kv_store 
-    ''' 
-    @staticmethod
-    def loads_tuple_keys(snapshot_name, default_type):
-        kv_store = KeyValueStore(dict_type=default_type)
-        try:
-            with open(snapshot_name, 'r') as f:
-                kv_store._memtable = json.loads(f.read())
-            return kv_store
-        except BaseException as e:
-            return kv_store 
-    '''
 
 # https://stackoverflow.com/a/12007885
 class RenamedTemporaryFile(object):

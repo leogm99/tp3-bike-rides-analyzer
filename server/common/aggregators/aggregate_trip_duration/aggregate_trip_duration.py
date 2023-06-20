@@ -1,5 +1,6 @@
 import logging
 
+from common.aggregators.aggregator import Aggregator
 from common.aggregators.aggregate_trip_duration.aggregate_trip_duration_middleware import \
     AggregateTripDurationMiddleware
 from common.aggregators.rolling_average_aggregator.rolling_average_aggregator import RollingAverageAggregator
@@ -30,16 +31,24 @@ class AggregateTripDuration(RollingAverageAggregator):
 
     def on_message_callback(self, message, delivery_tag):
         client_id = message.client_id
+        message_id = message.message_id
+        if Aggregator.was_message_processed(self._aggregate_table, message_id=message_id, client_id=client_id):
+            self._middleware.ack_message(delivery_tag)
+            return
         for obj in message.payload:
             obj.data['duration_sec'] = max(float(obj.data['duration_sec']), 0.)
-            super(AggregateTripDuration, self).aggregate(payload=obj, client_id=client_id)
-        self._middleware.ack_message(delivery_tag)
+            self.aggregate(payload=obj, client_id=client_id)
+        Aggregator.register_message_processed(self._aggregate_table, message_id=message_id, client_id=client_id)
+        if self._middleware.save_delivery_tag(delivery_tag):
+            self._aggregate_table.dumps('aggregate_table.json')
+            self._middleware.ack_all()
 
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')
+        self._aggregate_table.dumps('aggregate_table.json')
         client_id = message.client_id
         if client_id in self._aggregate_table:
-            client_results: KeyValueStore = self._aggregate_table[client_id]
+            client_results: KeyValueStore = self._aggregate_table[client_id]['data']
             logging.info(f'CLIENT RESULTS: {client_results}')
             msg_id = 0
             for k, v in client_results.items():
@@ -59,6 +68,9 @@ class AggregateTripDuration(RollingAverageAggregator):
                                         client_id=client_id)
         raw_eof = Protocol.serialize_message(eof)
         self._middleware.send_metrics_message(raw_eof)
+        self._middleware.ack_all()
+        if client_id in self._aggregate_table:
+            self._aggregate_table.delete(client_id)
         
 
     def close(self):
