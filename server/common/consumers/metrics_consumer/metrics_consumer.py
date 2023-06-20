@@ -16,7 +16,6 @@ class MetricsConsumer(DAGNode):
                  middleware: MetricsConsumerMiddleware = None):
         super().__init__()
         self._middleware = middleware
-        self._metrics_by_client_id: Dict[str, KeyValueStore] = {}
 
     def run(self):
         try:
@@ -30,25 +29,19 @@ class MetricsConsumer(DAGNode):
     def on_message_callback(self, message: Message, delivery_tag):
         if message.is_eof():
             return
-        client_id = self._get_client_id(message)
-        self._metrics_by_client_id[client_id].append(message.message_type, message.payload.data)
+        client_id = message.client_id
+        raw_metric = Protocol.serialize_message(message)
+        self._middleware.send_metrics_message(raw_metric, client_id)
         self._middleware.ack_message(delivery_tag)
 
     def on_producer_finished(self, message: Message, delivery_tag):
-        client_id = self._get_client_id(message)
-        logging.info(f'sending metrics! {self._metrics_by_client_id[client_id].getAll()}')
-        metrics = Message(message_type=METRICS, payload=Payload(data=self._metrics_by_client_id[client_id].getAll()))
-        raw_metrics = Protocol.serialize_message(metrics)
-        self._middleware.send_metrics_message(raw_metrics, client_id)
-        
+        client_id = message.client_id
+        logging.info(f'sending EOF for metrics! for client_id: {client_id}')
+        eof = Message.build_eof_message(message_type=METRICS, client_id=client_id)
+        raw_msg = Protocol.serialize_message(eof)
+        self._middleware.send_metrics_message(raw_msg, client_id)
 
     def close(self):
         if not self.closed:
             super(MetricsConsumer, self).close()
             self._middleware.stop()
-
-    def _get_client_id(self, message: Message):
-        client_id = message.client_id
-        if client_id not in self._metrics_by_client_id:
-            self._metrics_by_client_id[client_id] = KeyValueStore(defaultdict(list))
-        return client_id

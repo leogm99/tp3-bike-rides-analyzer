@@ -34,7 +34,6 @@ class AggregateTripDistance(RollingAverageAggregator):
     def on_message_callback(self, message, delivery_tag):
         client_id = message.client_id
         message_id = message.message_id
-        logging.info(f'client_id: {client_id}, message_id: {message_id}')
         if Aggregator.was_message_processed(self._aggregate_table, message_id=message_id, client_id=client_id):
             self._middleware.ack_message(delivery_tag)
             return
