@@ -79,6 +79,8 @@ class JoinByYearCityStationId(Joiner):
             for i in range(self._consumers):
                 self._middleware.send_aggregate_message(raw_eof, i)
             
+            if client_id in self._side_table:
+                self._side_table.delete(client_id)
 
     def close(self):
         if not self.closed:

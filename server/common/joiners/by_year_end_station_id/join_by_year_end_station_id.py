@@ -92,6 +92,8 @@ class JoinByYearEndStationId(Joiner):
             for i in range(self._consumers):
                 self.__send_message(eof, i)
             
+            if client_id in self._side_table:
+                self._side_table.delete(client_id)
 
     def close(self):
         if not self.closed:
