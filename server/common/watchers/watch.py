@@ -2,15 +2,19 @@ import dataclasses
 import enum
 import logging
 import socket
+import docker
 import threading
+
 from collections import defaultdict
 from time import time
-from typing import Any
+from typing import Any, List
 
 from common.middleware.watcher_middleware import WatcherMiddleware
+from queue import Queue
 
-WATCHER_TIMEOUT_SEC = 20
-WATCHER_RATE = 0.1
+WATCHER_TIMEOUT_SEC = 30
+WATCHER_RESTART_TIMEOUT = 25
+WATCHER_RATE = 0.01
 
 class HostState(enum.Enum):
     PROLLY_UP = enum.auto()
@@ -21,16 +25,18 @@ class HostState(enum.Enum):
 class HostInfo:
     hostname: str
     heard_from_last: float
+    last_restart_time: float = 0.
     curr_state: HostState = HostState.PROLLY_UP
 
     def reached_timeout(self, curr_time, timeout):
         return curr_time - self.heard_from_last > timeout
 
-    def restarting(self):
-        return self.curr_state == HostState.RESTARTING
+    def restarting(self, curr_time, timeout):
+        return self.curr_state == HostState.RESTARTING and curr_time - self.last_restart_time < timeout
 
-    def set_restart(self):
+    def set_restart(self, restart_time):
         self.curr_state = HostState.RESTARTING
+        self.last_restart_time = restart_time
 
     def update_info(self, heard_from):
         self.heard_from_last = heard_from
@@ -64,7 +70,7 @@ class Watch:
                 map(lambda h: h[1],
                     filter(lambda h:
                            h[1].reached_timeout(curr_time=curr_time, timeout=WATCHER_TIMEOUT_SEC) and not
-                           h[1].restarting(),
+                           h[1].restarting(curr_time=curr_time, timeout=WATCHER_RESTART_TIMEOUT),
                            self._monitored_hosts.items()
                            )
                     )
@@ -85,3 +91,33 @@ class Watch:
 
     def stop_watch(self):
         self._stop_watch_event.set()
+
+
+class Reviver:
+    def __init__(self) -> None:
+        self._queue = Queue()
+
+    def loop_revive(self):
+        while True:
+            data = self._queue.get()
+            if not data:
+                break
+            for host in data:
+                Reviver.__restart_container(host.hostname)
+            
+    def stop_reviving(self):
+        self._queue.put(None)
+
+    def schedule_revive(self, to_revive: List[HostInfo]):
+        self._queue.put(to_revive)
+
+    @staticmethod
+    def __restart_container(container_ip_addr):
+        client = docker.from_env()
+        # TODO: explain/document this little hack with the container ip address string
+        containers = list(filter(lambda c: container_ip_addr.split('.')[0] in c[1],
+                                map(lambda c: (c, c.attrs['Name']), client.containers.list(all=True))))
+        if containers:
+            logging.info(f'Restarting: {containers[0][0]}')
+            containers[0][0].restart()
+

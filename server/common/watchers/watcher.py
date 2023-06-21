@@ -1,16 +1,15 @@
 import logging
 import threading
-import docker
 
 from random import random
-from time import sleep
+from time import sleep, time
 
 from typing import List
 
 from common.middleware.ping_middleware import PingMiddleware
 from common.watched.watched import Watched
 from common.watchers.leader_election import LeaderElection
-from common.watchers.watch import Watch, HostInfo
+from common.watchers.watch import Watch, Reviver, HostInfo
 
 HOSTS_FILE = 'hosts.txt'
 
@@ -25,6 +24,8 @@ class Watcher(Watched):
         self._ping = PingMiddleware()
         self._watcher = None
         self._watcher_thread = None
+        self._reviver = None
+        self._reviver_thread = None
         self._watcher_id = watcher_id
         logging.info(f"HOSTS MAPPING: {self._watcher_id_host_mapping}")
 
@@ -47,6 +48,12 @@ class Watcher(Watched):
             self._watcher_thread.join()
             self._watcher = None
             self._watcher_thread = None
+        if self._reviver:
+            self._reviver.stop_reviving()
+            self._reviver_thread.join()
+            self._reviver = None
+            self._reviver_thread = None
+
         logging.info('do follower shit')
         leader = self._leader_election.get_leader_id()
         logging.info(f'leader is {leader}')
@@ -65,6 +72,10 @@ class Watcher(Watched):
             self._watcher = Watch(hosts=hosts, on_failure_callback=self.__on_node_failure)
             self._watcher_thread = threading.Thread(target=self._watcher.watch)
             self._watcher_thread.start()
+        if not self._reviver:
+            self._reviver = Reviver()
+            self._reviver_thread = threading.Thread(target=self._reviver.loop_revive)
+            self._reviver_thread.start()
         logging.info('do leader shit')
         ping_res = self._ping.receive_ping()
         if ping_res:
@@ -72,17 +83,9 @@ class Watcher(Watched):
         sleep(0.5)
 
     def __on_node_failure(self, failed_hosts: List[HostInfo]):
+        curr_time = time()
         for host in failed_hosts:
-            host.set_restart()
-            Watcher.__restart_container(host.hostname)
-
-    @staticmethod
-    def __restart_container(container_ip_addr):
-        client = docker.from_env()
-        # TODO: explain/document this little hack with the container ip address string
-        containers = list(filter(lambda c: container_ip_addr.split('.')[0] in c[1],
-                                map(lambda c: (c, c.attrs['Name']), client.containers.list(all=True))))
-        if containers:
-            logging.info(f'Restarting: {containers[0][0]}')
-            containers[0][0].restart()
+            host.set_restart(curr_time)
+        if self._reviver:
+            self._reviver.schedule_revive(failed_hosts)
 

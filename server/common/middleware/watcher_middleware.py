@@ -25,7 +25,7 @@ class WatcherMiddleware:
         return None
 
     def send_watcher_message(self, addr):
-        retries = 3
+        retries = 1
         while retries:
             try:
                 self.__send_all(b'\x00', (addr, WATCHER_PORT))
