@@ -56,14 +56,14 @@ def get_hosts():
 def get_hosts_to_kill():
     hosts = get_hosts()
     to_kill = choose_random(hosts) if args.at_random else hosts
-    leaveOneWatcherAlive(hosts, to_kill)
+    leave_one_watcher_alive(hosts, to_kill)
     return to_kill
 
 def choose_random(_list):
     n = random.randint(0, len(_list))
     return random.sample(_list, k=n)
 
-def leaveOneWatcherAlive(all_hosts: list, hosts_to_kill: list):
+def leave_one_watcher_alive(all_hosts: list, hosts_to_kill: list):
     is_watcher = lambda h: 'watcher' in h
     n_watchers = len(list(filter(is_watcher, all_hosts)))
     watchers_to_kill = list(filter(is_watcher, hosts_to_kill))
