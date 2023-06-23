@@ -12,7 +12,8 @@ x-node: &node
   links:
     - rabbit
   depends_on:
-    - rabbit
+    rabbit:
+      condition: service_healthy
   volumes:
     - type: bind
       source: ./server/config.ini
@@ -30,7 +31,7 @@ services:
     ports:
       - "15672:15672"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check-port-connectivity"]
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,7 +46,8 @@ services:
       - FILTER_BY_DISTANCE_REPLICAS={replica_dict['filter_by_distance']}
       - AGGREGATE_TRIP_DURATION_REPLICAS={replica_dict['aggregate_trip_duration']}
     depends_on:
-      - rabbit 
+      rabbit:
+        condition: service_healthy
 '''
 
 def loader(replica_dict):
@@ -172,7 +174,8 @@ def filter_by_distance(replica_dict):
       - AGGREGATE_TRIP_DISTANCE_REPLICAS={replica_dict['aggregate_trip_distance']}
       - ID={i}
     depends_on:
-      - rabbit'''
+      rabbit:
+        condition: service_healthy'''
     definitions += definition
   return definitions + '\n'
 

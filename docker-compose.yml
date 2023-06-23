@@ -24,7 +24,7 @@ services:
     ports:
       - "15672:15672"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check-port-connectivity"]
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,7 +39,8 @@ services:
       - FILTER_BY_DISTANCE_REPLICAS=1
       - AGGREGATE_TRIP_DURATION_REPLICAS=5
     depends_on:
-      - rabbit 
+      rabbit:
+        condition: service_healthy
 
   aggregate_trip_distance_0:
     <<: *node
@@ -370,7 +371,8 @@ services:
       - AGGREGATE_TRIP_DISTANCE_REPLICAS=5
       - ID=0
     depends_on:
-      - rabbit
+      rabbit:
+        condition: service_healthy
 
   filter_by_city_0:
     <<: *node
