@@ -95,6 +95,7 @@ class Loader(DAGNode):
     def process_loop(self, sem):
         while True:
             client_socket = self._process_queue.get(block=True, timeout=None)
+            client_socket.settimeout(30)
             
             self._run(client_socket, self._hostname, self._ack_count)
             sem.release()
@@ -102,6 +103,8 @@ class Loader(DAGNode):
     def _run(self, client_socket, hostname, ack_count):
         middleware = self._middleware_callback()
         process_id = os.getpid()
+        static_ack_waiter = None
+        metrics_waiter = None
         try: 
             logging.info(f'action: run process to receive client data | status: in progress | process_id: {process_id}')
 
@@ -137,6 +140,14 @@ class Loader(DAGNode):
             Protocol.send_message(client_socket.sendall, metrics_obj)
 
             Loader.release_client_session(client_socket, static_ack_waiter, metrics_waiter)
+        except socket.timeout as e:
+            logging.info(f'Client timeout | Error: {e} | process_id: {process_id}')
+            if static_ack_waiter:
+                static_ack_waiter.close()
+                static_ack_waiter.join()
+            if metrics_waiter:
+                metrics_waiter.close()
+                metrics_waiter.join()
         except Exception as e:
             logging.info(f"Error: {e} | process_id: {process_id}", stack_info=True)
         finally:
