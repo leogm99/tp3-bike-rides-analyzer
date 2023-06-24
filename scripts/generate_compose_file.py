@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import os
 
 MIN_WATCHERS = 2
 DEFAULT_NODE_REPLICAS = 1
@@ -402,7 +403,10 @@ def gen_hosts_file(replica_dict):
          continue
       for i in range(v):
           lines.append(f"{network_base_name}-{k}_{i}-1.{network_name}\n")
-    with open('hosts.txt', 'w') as h:
+    actual_path = os.path.dirname(os.path.abspath(__file__))
+    server_path = os.path.join(actual_path, '..', 'server')
+    hosts_path = os.path.join(server_path, 'hosts.txt')
+    with open(hosts_path, 'w') as h:
           h.writelines(lines)
 
 
