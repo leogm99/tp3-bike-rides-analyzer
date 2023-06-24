@@ -1,14 +1,10 @@
 import logging
-from typing import Dict
 
 from common.consumers.metrics_consumer.metrics_consumer_middleware import MetricsConsumerMiddleware
 from common.dag_node import DAGNode
-from collections import defaultdict
 
-from common_utils.protocol.message import Message, METRICS, CLIENT_ID
-from common_utils.protocol.payload import Payload
+from common_utils.protocol.message import Message, METRICS, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
-from common_utils.KeyValueStore import KeyValueStore
 
 
 class MetricsConsumer(DAGNode):
@@ -19,6 +15,7 @@ class MetricsConsumer(DAGNode):
 
     def run(self):
         try:
+            self._middleware.consume_flush(f"{FLUSH}_metrics", self.on_flush)
             self._middleware.receive_metrics(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
         except BaseException as e:
@@ -36,10 +33,14 @@ class MetricsConsumer(DAGNode):
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
+        timestamp = message.timestamp
         logging.info(f'sending EOF for metrics! for client_id: {client_id}')
-        eof = Message.build_eof_message(message_type=METRICS, client_id=client_id)
+        eof = Message.build_eof_message(message_type=METRICS, client_id=client_id, timestamp=timestamp)
         raw_msg = Protocol.serialize_message(eof)
         self._middleware.send_metrics_message(raw_msg, client_id)
+
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
 
     def close(self):
         if not self.closed:

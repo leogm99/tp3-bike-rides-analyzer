@@ -5,17 +5,17 @@ import logging
 import queue
 import threading
 import uuid
+import time
 
 from common.loader.loader_middleware import LoaderMiddleware
 from common.loader.metrics_waiter import MetricsWaiter
 from common.loader.metrics_waiter_middleware import MetricsWaiterMiddleware
-from common_utils.utils import receive_string_message, recv_n_bytes, send_string_message
+from common_utils.utils import recv_n_bytes
 from common.dag_node import DAGNode
 from common.loader.static_data_ack_waiter import StaticDataAckWaiter
 from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
-from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS, CLIENT_ID
+from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS
 from common_utils.protocol.protocol import Protocol
-from common.loader.client_manager import ClientManager
 from common.loader.stream_state import StreamState
 
 class Loader(DAGNode):
@@ -46,6 +46,9 @@ class Loader(DAGNode):
             self._clients_number = max_clients
 
             self._process_queue = multiprocessing.Queue()
+
+            self._middleware: LoaderMiddleware = self._middleware_callback()
+            self._send_flush()
 
         except socket.error as se:
             logging.error(f'action: socket-create | status: failed | reason: {se}')
@@ -150,7 +153,7 @@ class Loader(DAGNode):
     def on_producer_finished(self, message, delivery_tag):
         raise NotImplementedError
 
-    def on_eof_threshold_reached(self, eof_type: str, client_id: str, stream_state: StreamState, middleware: LoaderMiddleware):
+    def on_eof_threshold_reached(self, eof_type: str, client_id: str, timestamp: str, stream_state: StreamState, middleware: LoaderMiddleware):
         if eof_type == STATIONS:
             replica_count = self._stations_consumer_replica_count
             send = middleware.send_stations
@@ -165,15 +168,16 @@ class Loader(DAGNode):
             stream_state.set_trips_eof()
         else:
             raise ValueError("Invalid type of data received")
-        eof = Message.build_eof_message(message_type=eof_type, client_id=client_id)
+        eof = Message.build_eof_message(message_type=eof_type, client_id=client_id, timestamp=timestamp)
         logging.info(f'sending {replica_count} eofs to: {eof_type}')
         for i in range(replica_count):
             send(Protocol.serialize_message(eof), i)
 
     def __receive_client_message_and_publish(self, client_socket, stream_state: StreamState, middleware: LoaderMiddleware):
         message = Protocol.receive_message(lambda n: recv_n_bytes(client_socket, n))
+        message.timestamp = self.get_timestamp()
         if message.is_eof():
-            self.on_eof_threshold_reached(message.message_type, message.client_id, stream_state, middleware)
+            self.on_eof_threshold_reached(message.message_type, message.client_id, message.timestamp, stream_state, middleware)
         else:
             module = None
             send_to = None
@@ -192,6 +196,15 @@ class Loader(DAGNode):
             routing_key = int(message.message_id) % module
             raw_msg = Protocol.serialize_message(message)
             send_to(raw_msg, routing_key)
+
+    def _send_flush(self):
+        flush_timestamp = self.get_timestamp()
+        flush_message = Message.build_flush_message(flush_timestamp)
+        flush_message = Protocol.serialize_message(flush_message)
+        self._middleware.send_flush(flush_message)
+
+    def get_timestamp(self):
+        return str(time.time())
 
     @staticmethod
     def release_client_session(client_socket, static_ack_waiter, metrics_waiter):

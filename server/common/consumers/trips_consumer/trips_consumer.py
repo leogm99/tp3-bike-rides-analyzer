@@ -1,6 +1,6 @@
 from common.consumers.trips_consumer.trips_consumer_middleware import TripsConsumerMiddleware
 from common.dag_node import DAGNode
-from common_utils.protocol.message import Message, TRIPS, CLIENT_ID
+from common_utils.protocol.message import Message, TRIPS, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
 import logging
 
@@ -24,6 +24,7 @@ class TripsConsumer(DAGNode):
 
     def run(self):
         try:
+            self._middleware.consume_flush(f"{FLUSH}_{ORIGIN_PREFIX}_{self._middleware._node_id}", self.on_flush)
             self._middleware.receive_trips(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
         except BaseException as e:
@@ -44,7 +45,8 @@ class TripsConsumer(DAGNode):
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
-        eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+        timestamp = message.timestamp
+        eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id, timestamp=timestamp, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
         self.__send_message_to_filter_by_year(eof)
         self.__send_message_to_filter_by_city(eof)
         self.__send_message_to_joiner_by_date(eof)
@@ -76,6 +78,9 @@ class TripsConsumer(DAGNode):
         else:
             for i in range(self._joiner_by_date_consumers):
                 self._middleware.send_joiner_message(raw_msg, i)
+
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
 
     def close(self):
         if not self.closed:

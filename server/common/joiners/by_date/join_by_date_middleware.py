@@ -40,6 +40,19 @@ class JoinByDateMiddleware(Middleware):
     def receive_trips(self, on_message_callback, on_end_message_callback):
         self._trips_input_queue.consume(on_message_callback, on_end_message_callback)
 
+    def flush(self, timestamp):
+        self.timestamp_store['timestamp'] = timestamp
+        self.timestamp_store.dumps('timestamp_store.json')
+        self.ack_weathers()
+        self._weather_date_input_queue.flush(timestamp)
+        self._trips_input_queue.flush(timestamp)
+
+    def consume_flush(self, owner, callback):
+        super().consume_flush(owner, callback)
+        ts = self.timestamp_store.get('timestamp')
+        self._weather_date_input_queue.set_global_flush_timestamp(ts)
+        self._trips_input_queue.set_global_flush_timestamp(ts)
+
     def send_aggregator_message(self, message, aggregator_id):
         self._output_exchange.publish(message, routing_key=AGGREGATE_TRIP_DURATION_ROUTING_KEY(aggregator_id))
 

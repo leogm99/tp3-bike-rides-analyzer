@@ -2,7 +2,7 @@ import logging
 
 from common.consumers.stations_consumer.stations_consumer_middleware import StationsConsumerMiddleware
 from common.dag_node import DAGNode
-from common_utils.protocol.message import Message, STATIONS, CLIENT_ID
+from common_utils.protocol.message import Message, STATIONS, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
 
 ORIGIN_PREFIX = 'stations_consumer'
@@ -22,6 +22,7 @@ class StationsConsumer(DAGNode):
 
     def run(self):
         try:
+            self._middleware.consume_flush(f"{FLUSH}_{ORIGIN_PREFIX}_{self._middleware._node_id}", self.on_flush)
             self._middleware.receive_stations(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
         except BaseException as e:
@@ -42,8 +43,10 @@ class StationsConsumer(DAGNode):
     def on_producer_finished(self, message: Message, delivery_tag):
         logging.info('received eof')
         client_id = message.client_id
+        timestamp = message.timestamp
         eof = Message.build_eof_message(message_type=STATIONS,
                                         client_id=client_id,
+                                        timestamp=timestamp,
                                         origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
         self.__send_message_to_filter_by_city(eof)
         self.__send_message_to_joiner_by_year_city_station_id(eof)
@@ -62,6 +65,9 @@ class StationsConsumer(DAGNode):
     def __send_message_to_joiner_by_year_city_station_id(self, message: Message):
         raw_message = Protocol.serialize_message(message)
         self._middleware.send_joiner_message(raw_message)
+
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
 
     def close(self):
         if not self.closed:

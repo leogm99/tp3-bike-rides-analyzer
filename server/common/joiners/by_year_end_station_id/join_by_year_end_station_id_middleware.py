@@ -42,6 +42,19 @@ class JoinByYearEndStationIdMiddleware(Middleware):
     def receive_trips(self, on_message_callback, on_end_message_callback):
         self._trips_input_queue.consume(on_message_callback, on_end_message_callback)
 
+    def flush(self, timestamp):
+        self.timestamp_store['timestamp'] = timestamp
+        self.timestamp_store.dumps('timestamp_store.json')
+        self.ack_stations()
+        self._stations_input_queue.flush(timestamp)
+        self._trips_input_queue.flush(timestamp)
+
+    def consume_flush(self, owner, callback):
+        super().consume_flush(owner, callback)
+        ts = self.timestamp_store.get('timestamp')
+        self._stations_input_queue.set_global_flush_timestamp(ts)
+        self._trips_input_queue.set_global_flush_timestamp(ts)
+
     def send_static_data_ack(self, ack, client_id):
         self._output_exchange.publish(ack, routing_key=STATIC_DATA_ACK_ROUTING_KEY + '_' + str(client_id))
 

@@ -6,7 +6,7 @@ from common.aggregators.count_aggregator.count_aggregator import CountAggregator
 from typing import Tuple
 
 from common_utils.protocol.payload import Payload
-from common_utils.protocol.message import Message, NULL_TYPE, CLIENT_ID
+from common_utils.protocol.message import Message, NULL_TYPE, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
 from common_utils.KeyValueStore import KeyValueStore
 
@@ -24,6 +24,7 @@ class AggregateTripCount(CountAggregator):
 
     def run(self):
         try:
+            self._middleware.consume_flush(f"{FLUSH}_{ORIGIN}_{self._middleware._node_id}", self.on_flush)
             self._middleware.receive_trip_count(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
         except BaseException as e:
@@ -60,6 +61,7 @@ class AggregateTripCount(CountAggregator):
         self._aggregate_table.dumps(f"aggregate_table.json")
 
         client_id = message.client_id
+        timestamp = message.timestamp
         if client_id in self._aggregate_table:
             client_results: KeyValueStore = self._aggregate_table[client_id]['data']
             msg_id = 0
@@ -69,6 +71,7 @@ class AggregateTripCount(CountAggregator):
                             origin=f"{ORIGIN}_{self._middleware._node_id}",
                             client_id=message.client_id,
                             message_id=msg_id,
+                            timestamp=timestamp,
                             payload=payload)
                 routing_key = msg_id % self._consumers
                 raw_msg = Protocol.serialize_message(msg)
@@ -76,7 +79,7 @@ class AggregateTripCount(CountAggregator):
                 msg_id += 1
         else:
             logging.info(f'NO DATA FOR CLIENT ID: {client_id} |: {self._aggregate_table}')
-        eof = Message.build_eof_message(client_id=client_id, origin=f"{ORIGIN}_{self._middleware._node_id}")
+        eof = Message.build_eof_message(client_id=client_id, timestamp=timestamp, origin=f"{ORIGIN}_{self._middleware._node_id}")
         raw_eof = Protocol.serialize_message(eof)
         for i in range(self._consumers):
             self._middleware.send_filter_message(raw_eof, i)
@@ -92,7 +95,9 @@ class AggregateTripCount(CountAggregator):
             self._aggregate_table.delete(client_id)
         # on the next flush, the json file will be truncated
         
-        
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
+        self._aggregate_table.nuke(f"{ORIGIN}_{self._middleware._node_id}")
 
     def close(self):
         if not self.closed:

@@ -25,6 +25,17 @@ class AggregateTripDurationMiddleware(Middleware):
     def receive_trip_duration(self, on_message_callback, on_end_message_callback):
         self._input_queue.consume(on_message_callback, on_end_message_callback)
 
+    def flush(self, timestamp):
+        self.timestamp_store['timestamp'] = timestamp
+        self.timestamp_store.dumps('timestamp_store.json')
+        self.ack_all()
+        self._input_queue.flush(timestamp)
+
+    def consume_flush(self, owner, callback):
+        super().consume_flush(owner, callback)
+        ts = self.timestamp_store.get('timestamp')
+        self._input_queue.set_global_flush_timestamp(ts)
+
     def send_metrics_message(self, message):
         self._output_exchange.publish(message, routing_key=METRICS_CONSUMER_ROUTING_KEY)
 

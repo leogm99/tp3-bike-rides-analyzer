@@ -6,7 +6,7 @@ from common.aggregators.aggregate_trip_duration.aggregate_trip_duration_middlewa
 from common.aggregators.rolling_average_aggregator.rolling_average_aggregator import RollingAverageAggregator
 from typing import Tuple
 from common_utils.protocol.payload import Payload
-from common_utils.protocol.message import Message, DURATION_METRIC, CLIENT_ID
+from common_utils.protocol.message import Message, DURATION_METRIC, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
 from common_utils.KeyValueStore import KeyValueStore
 
@@ -22,6 +22,7 @@ class AggregateTripDuration(RollingAverageAggregator):
 
     def run(self):
         try:
+            self._middleware.consume_flush(f"{FLUSH}_{ORIGIN}_{self._middleware._node_id}", self.on_flush)
             self._middleware.receive_trip_duration(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
         except BaseException as e:
@@ -47,6 +48,7 @@ class AggregateTripDuration(RollingAverageAggregator):
         logging.info(f'FINISHED WITH CLIENT ID: {message.client_id}')
         self._aggregate_table.dumps('aggregate_table.json')
         client_id = message.client_id
+        timestamp = message.timestamp
         if client_id in self._aggregate_table:
             client_results: KeyValueStore = self._aggregate_table[client_id]['data']
             logging.info(f'CLIENT RESULTS: {client_results}')
@@ -56,6 +58,7 @@ class AggregateTripDuration(RollingAverageAggregator):
                 msg = Message(message_type=DURATION_METRIC, 
                             origin=f"f{ORIGIN}_{self._middleware._node_id}",
                             message_id=msg_id,
+                            timestamp=timestamp,
                             payload=payload, 
                             client_id=message.client_id)
                 raw_msg = Protocol.serialize_message(msg)
@@ -64,6 +67,7 @@ class AggregateTripDuration(RollingAverageAggregator):
         else:
             logging.info(f'NO DATA FOR CLIENT ID: {client_id} |: {self._aggregate_table}')
         eof = Message.build_eof_message(message_type=DURATION_METRIC, 
+                                        timestamp=timestamp,
                                         origin=f"f{ORIGIN}_{self._middleware._node_id}", 
                                         client_id=client_id)
         raw_eof = Protocol.serialize_message(eof)
@@ -72,6 +76,9 @@ class AggregateTripDuration(RollingAverageAggregator):
         if client_id in self._aggregate_table:
             self._aggregate_table.delete(client_id)
         
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
+        self._aggregate_table.nuke(f"{ORIGIN}_{self._middleware._node_id}")
 
     def close(self):
         if not self.closed:

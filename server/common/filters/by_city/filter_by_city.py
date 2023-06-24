@@ -2,7 +2,7 @@ import logging
 
 from common.filters.by_city.filter_by_city_middleware import FilterByCityMiddleware
 from common.filters.string_equality.string_equality import StringEquality
-from common_utils.protocol.message import Message, TRIPS, STATIONS, CLIENT_ID
+from common_utils.protocol.message import Message, TRIPS, STATIONS, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
 
 ORIGIN_PREFIX = 'filter_by_city'
@@ -25,6 +25,7 @@ class FilterByCity(StringEquality):
 
     def run(self):
         try:
+            self._middleware.consume_flush(f"{FLUSH}_{ORIGIN_PREFIX}_{self._middleware._node_id}", self.on_flush)
             self._middleware.receive_stations(self.on_message_callback, self.on_producer_finished)
             self._middleware.receive_trips(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
@@ -65,13 +66,16 @@ class FilterByCity(StringEquality):
 
     def on_producer_finished(self, message: Message, delivery_tag):
         client_id = message.client_id
+        timestamp = message.timestamp
         if message.is_type(STATIONS):
-            stations_eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+            stations_eof = Message.build_eof_message(message_type=STATIONS, client_id=client_id, timestamp=timestamp, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
             self.__send_stations_message(stations_eof)
         elif message.is_type(TRIPS):
-            trips_eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+            trips_eof = Message.build_eof_message(message_type=TRIPS, client_id=client_id, timestamp=timestamp, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
             self.__send_trips_message(trips_eof)
             
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
 
     def close(self):
         if not self.closed:

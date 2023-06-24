@@ -41,3 +41,13 @@ class TripsConsumerMiddleware(Middleware):
 
     def ack_message(self, delivery_tag):
         self._input_queue.ack(delivery_tag)
+
+    def flush(self, timestamp):
+        self.timestamp_store['timestamp'] = timestamp
+        self.timestamp_store.dumps('timestamp_store.json')
+        self._input_queue.flush(timestamp)
+
+    def consume_flush(self, owner, callback):
+        super().consume_flush(owner, callback)
+        ts = self.timestamp_store.get('timestamp')
+        self._input_queue.set_global_flush_timestamp(ts)

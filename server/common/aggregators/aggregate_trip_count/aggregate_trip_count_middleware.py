@@ -25,6 +25,17 @@ class AggregateTripCountMiddleware(Middleware):
     def receive_trip_count(self, on_message_callback, on_end_message_callback):
         self._input_queue.consume(on_message_callback, on_end_message_callback)
 
+    def flush(self, timestamp):
+        self.timestamp_store['timestamp'] = timestamp
+        self.timestamp_store.dumps('timestamp_store.json')
+        self.ack_all()
+        self._input_queue.flush(timestamp)
+
+    def consume_flush(self, owner, callback):
+        super().consume_flush(owner, callback)
+        ts = self.timestamp_store.get('timestamp')
+        self._input_queue.set_global_flush_timestamp(ts)
+
     def send_filter_message(self, message, routing_key):
         self._output_exchange.publish(message, routing_key=f"{FILTER_BY_COUNT_ROUTING_KEY}_{routing_key}")
 
