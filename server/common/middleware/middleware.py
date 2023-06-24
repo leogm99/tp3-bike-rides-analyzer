@@ -2,6 +2,7 @@ from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 from common.rabbit.rabbit_exchange import RabbitExchange
 from common.rabbit.rabbit_queue import RabbitQueue
 from common_utils.KeyValueStore import KeyValueStore
+from collections import defaultdict
 
 FLUSH_EXCHANGE_NAME = 'flush'
 FLUSH_EXCHANGE_TYPE = 'fanout'
@@ -33,7 +34,7 @@ class Middleware:
 
 
     def consume_flush(self, owner, callback):
-        self.timestamp_store = KeyValueStore.loads(f"timestamp_store.json", default_type={})
+        self.timestamp_store = KeyValueStore.loads(f"timestamp_store.json", default_type=defaultdict(float))
         self._flush_queue = RabbitQueue(
             rabbit_connection=self._rabbit_connection,
             queue_name = f"flush_{owner}",
@@ -41,3 +42,4 @@ class Middleware:
             bind_exchange_type=FLUSH_EXCHANGE_TYPE
         )
         self._flush_queue.consume(lambda: None, lambda: None, callback)
+        return self.timestamp_store['timestamp']

@@ -48,6 +48,7 @@ class Loader(DAGNode):
             self._process_queue = multiprocessing.Queue()
 
             self._middleware: LoaderMiddleware = self._middleware_callback()
+            self._middleware.create_flush_channel()
             self._send_flush()
 
         except socket.error as se:
@@ -204,7 +205,7 @@ class Loader(DAGNode):
         self._middleware.send_flush(flush_message)
 
     def get_timestamp(self):
-        return str(time.time())
+        return time.time()
 
     @staticmethod
     def release_client_session(client_socket, static_ack_waiter, metrics_waiter):

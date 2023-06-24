@@ -36,6 +36,7 @@ class RabbitQueue:
             message = Protocol.deserialize_message(body)
             delivery_tag = method.delivery_tag
             if message.is_flush():
+                logging.info(f'action: consume | message: received flush with timestamp {message.timestamp}')
                 on_flush(message, delivery_tag)
                 self.ack(delivery_tag)
                 return

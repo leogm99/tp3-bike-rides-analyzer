@@ -40,6 +40,5 @@ class WeatherConsumerMiddleware(Middleware):
         self._weather_queue.flush(timestamp)
 
     def consume_flush(self, owner, callback):
-        super().consume_flush(owner, callback)
-        ts = self.timestamp_store.get('timestamp')
+        ts = super().consume_flush(owner, callback)
         self._weather_queue.set_global_flush_timestamp(ts)

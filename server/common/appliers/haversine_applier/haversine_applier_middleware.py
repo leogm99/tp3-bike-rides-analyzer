@@ -35,6 +35,5 @@ class HaversineApplierMiddleware(Middleware):
         self._input_queue.flush(timestamp)
 
     def consume_flush(self, owner, callback):
-        super().consume_flush(owner, callback)
-        ts = self.timestamp_store.get('timestamp')
+        ts = super().consume_flush(owner, callback)
         self._input_queue.set_global_flush_timestamp(ts)
