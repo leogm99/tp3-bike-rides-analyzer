@@ -10,6 +10,7 @@ class StaticDataAckWaiterMiddleware(Middleware):
         self._static_data_ack = RabbitQueue(
             self._rabbit_connection,
             queue_name=QUEUE_NAME + '_' + client_id,
+            auto_delete=True,
         )
 
     def receive_ack(self, on_message_callback, on_end_message_callback):

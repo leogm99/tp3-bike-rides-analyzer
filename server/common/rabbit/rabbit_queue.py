@@ -15,13 +15,14 @@ class RabbitQueue:
                  bind_exchange: str = '',
                  bind_exchange_type: str = '',
                  routing_key: str = '',
-                 producers: int = 1):
+                 producers: int = 1,
+                 auto_delete: bool = False):
         self._producers = producers
         self._snapshot_name = f"{SNAPSHOT_EOF}_{queue_name}"
         self._count_eof: KeyValueStore = KeyValueStore.loads(self._snapshot_name, default_type=defaultdict(list))
         logging.info(f'key value store: {self._count_eof._memtable}')
         self._rabbit_connection = rabbit_connection
-        self._queue_name = rabbit_connection.queue_declare(queue_name)
+        self._queue_name = rabbit_connection.queue_declare(queue_name, auto_delete=auto_delete)
         self._consumer_tag = None
         self._global_flush_timestamp: float = 0.0
         if bind_exchange != '':

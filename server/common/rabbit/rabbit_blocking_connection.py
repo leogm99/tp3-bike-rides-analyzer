@@ -18,10 +18,11 @@ class RabbitBlockingConnection:
         self._closed = False
         self._consuming = False
 
-    def queue_declare(self, queue_name: str) -> str:
+    def queue_declare(self, queue_name: str, auto_delete=False) -> str:
         result = self._channel.queue_declare(
             queue=queue_name,
-            durable=True,
+            durable=True if auto_delete==False else False,
+            auto_delete=auto_delete,
         )
         return result.method.queue
 

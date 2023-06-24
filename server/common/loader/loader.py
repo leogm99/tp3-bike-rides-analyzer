@@ -138,7 +138,7 @@ class Loader(DAGNode):
 
             Loader.release_client_session(client_socket, static_ack_waiter, metrics_waiter)
         except Exception as e:
-            logging.debug(f"Error: {e} | process_id: {process_id}", stack_info=True)
+            logging.info(f"Error: {e} | process_id: {process_id}", stack_info=True)
         finally:
             middleware.stop()
 

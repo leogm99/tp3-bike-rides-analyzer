@@ -10,6 +10,7 @@ class MetricsWaiterMiddleware(Middleware):
         self._input_queue = RabbitQueue(
             self._rabbit_connection,
             queue_name=QUEUE_NAME + '_' + client_id,
+            auto_delete=True,
         )
 
     def receive_metrics(self, on_message_callback, on_end_message_callback):

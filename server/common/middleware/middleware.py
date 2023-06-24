@@ -37,7 +37,7 @@ class Middleware:
         self.timestamp_store = KeyValueStore.loads(f"timestamp_store.json", default_type=defaultdict(float))
         self._flush_queue = RabbitQueue(
             rabbit_connection=self._rabbit_connection,
-            queue_name = f"flush_{owner}",
+            queue_name = f"{owner}",
             bind_exchange=FLUSH_EXCHANGE_NAME,
             bind_exchange_type=FLUSH_EXCHANGE_TYPE
         )
