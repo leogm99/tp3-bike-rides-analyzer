@@ -14,7 +14,7 @@ HAVERSINE_APPLIER_ROUTING_KEY = 'haversine_applier'
 
 class JoinByYearEndStationIdMiddleware(Middleware):
     def __init__(self, hostname: str, stations_producers: int, trips_producers: int, node_id: int):
-        super().__init__(hostname)
+        super().__init__(hostname, prefetch_count=200)
         self._node_id = node_id
         self._stations_input_queue = RabbitQueue(
             self._rabbit_connection,

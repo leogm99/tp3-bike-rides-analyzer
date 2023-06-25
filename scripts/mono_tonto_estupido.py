@@ -23,6 +23,8 @@ STOP = threading.Event()
 MIN_KILL_RATE_SECONDS = 10
 MAX_KILL_RATE_SECONDS = 60
 
+FLAGGED = ['loader', 'client', 'rabbit']
+
 def sig_handler():
     logging.info('action: sig-handler | message: quitting now')
     STOP.set()
@@ -42,7 +44,7 @@ def get_hosts():
     result = subprocess.run(['docker', 'network', 'inspect', NETWORK, '--format="{{range $key, $value := .Containers}}{{println $value.Name}}{{end}}"'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     all_host_list = result.stdout.decode().replace('"', '').split('\n')
     # TODO: remove loader from here
-    all_host_list = list(filter(lambda h: all(ignore_host not in h for ignore_host in ['loader', 'client', 'rabbit']) and h != '', all_host_list))
+    all_host_list = list(filter(lambda h: all(ignore_host not in h for ignore_host in FLAGGED) and h != '', all_host_list))
     hosts = []
     if args.host_kill_list:
         for user_host in args.host_kill_list:

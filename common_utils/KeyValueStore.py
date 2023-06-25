@@ -35,8 +35,8 @@ class KeyValueStore:
         return self._memtable
 
     def nuke(self, snapshot_name=""):
-        self._memtable = self._default
-        KeyValueStore.dumps(self, snapshot_name) 
+        self._memtable.clear()
+        KeyValueStore.dumps(self, snapshot_name)
 
     def delete(self, key):
         del self._memtable[key]

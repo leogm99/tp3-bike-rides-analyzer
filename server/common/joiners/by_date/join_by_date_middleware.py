@@ -12,7 +12,7 @@ AGGREGATE_TRIP_DURATION_ROUTING_KEY = lambda n: f'aggregate_trip_duration_{n}'
 
 class JoinByDateMiddleware(Middleware):
     def __init__(self, hostname: str, weather_producers: int, trips_producers: int, node_id: int):
-        super().__init__(hostname)
+        super().__init__(hostname, prefetch_count=200)
         self._node_id = node_id
         self._weather_date_input_queue = RabbitQueue(
             self._rabbit_connection,

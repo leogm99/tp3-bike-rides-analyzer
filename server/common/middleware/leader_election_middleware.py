@@ -1,7 +1,9 @@
+import logging
 import socket
 import struct
 
 LEADER_ELECTION_PORT = 54321
+RECV_TIMEOUT = 0.1
 
 OK = b'o'
 ELECTION = b'e'
@@ -15,6 +17,7 @@ class LeaderElectionMiddleware:
         self._udp_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         if listen:
             self._udp_socket.bind(('', LEADER_ELECTION_PORT))
+        self._udp_socket.settimeout(RECV_TIMEOUT)
 
     def send_election(self, sender_id, recipients):
         payload = struct.pack(PAYLOAD_FORMAT, ELECTION, sender_id)
@@ -33,8 +36,11 @@ class LeaderElectionMiddleware:
 
     def recv_election_message(self):
         # every election message has two bytes
-        data, addr = self.__recv_all(2)
-        return struct.unpack(PAYLOAD_FORMAT, data)
+        try:
+            data, addr = self.__recv_all(2)
+            return struct.unpack(PAYLOAD_FORMAT, data)
+        except socket.timeout:
+            return None, None
 
     def close(self):
         self._udp_socket.close()

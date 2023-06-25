@@ -8,9 +8,10 @@ FLUSH_EXCHANGE_NAME = 'flush'
 FLUSH_EXCHANGE_TYPE = 'fanout'
 
 class Middleware:
-    def __init__(self, hostname: str):
+    def __init__(self, hostname: str, prefetch_count: int = 50):
         self._rabbit_connection = RabbitBlockingConnection(
             rabbit_hostname=hostname,
+            prefetch_count=prefetch_count,
         )
 
         self._flush_queue = None
@@ -31,7 +32,6 @@ class Middleware:
 
     def stop(self):
         self._rabbit_connection.close()
-
 
     def consume_flush(self, owner, callback):
         self.timestamp_store = KeyValueStore.loads(f"timestamp_store.json", default_type=defaultdict(float))

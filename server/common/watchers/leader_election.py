@@ -1,5 +1,6 @@
 import threading
 import copy
+import logging
 
 from common_utils.singleton import Singleton
 from common.middleware.leader_election_middleware import LeaderElectionMiddleware, OK, COORDINATOR, ELECTION
@@ -45,26 +46,49 @@ class LeaderElection:
         self._leader_id = LeaderId()
         self._ok = Ok()
         self._id_host_mapping = id_host_mapping
+        self._comm = LeaderElectionMiddleware(id_host_mapping=self._id_host_mapping, listen=True)
+        self._closed = threading.Event()
+        self._elections = []
 
     def listen_messages(self):
-        comm = LeaderElectionMiddleware(id_host_mapping=self._id_host_mapping, listen=True)
-        while True:
-            message, sender_id = comm.recv_election_message()
+        while not self._closed.is_set():
+            try:
+                message, sender_id = self._comm.recv_election_message()
+                if self._closed.is_set():
+                    logging.info('action: close | message: stopping leader election and shutting down')
+                    break
 
-            if message == OK:
-                self._ok.set()
-            elif message == ELECTION:
-                if self._my_id > sender_id:
-                    comm.send_ok(self._my_id, sender_id)
-                    self.run_election()
-            elif message == COORDINATOR:
-                self._set_leader(sender_id)
-            else:
-                # ?
-                pass
+                if not message:
+                    continue
+
+                if message == OK:
+                    self._ok.set()
+                elif message == ELECTION:
+                    if self._my_id > sender_id:
+                        self._comm.send_ok(self._my_id, sender_id)
+                        self.run_election()
+                elif message == COORDINATOR:
+                    self._set_leader(sender_id)
+                else:
+                    # ?
+                    pass
+            except BaseException as e:
+                if self._closed.is_set():
+                    logging.info('action: close | message: stopping leader election and shutting down')
+                    for election in self._elections:
+                        election.join()
+                    break
+                else:
+                    logging.error(f'action: leader_election | error: {e}')
+                    raise e from e
+
+    def stop(self):
+        self._closed.set()
+        self._comm.close()
 
     def run_election(self):
         t = threading.Thread(target=self.find_leader, args=(copy.deepcopy(self._id_host_mapping),))
+        self._elections.append(t)
         t.start()
 
     def find_leader(self, id_host_mapping):

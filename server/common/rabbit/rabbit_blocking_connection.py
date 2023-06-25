@@ -67,11 +67,15 @@ class RabbitBlockingConnection:
         self._channel.basic_ack(delivery_tag=delivery_tag)
 
     def close(self):
+        # this is needed in case "close" is called from another thread
+        self._conn.add_callback_threadsafe(self.__close)
+
+    def __close(self):
         if not self._closed:
             self._closed = True
             if self._consuming:
                 self._channel.stop_consuming()
             self._conn.close()
-    
+
     def get_prefetch_count(self):
         return self._prefetch_count
