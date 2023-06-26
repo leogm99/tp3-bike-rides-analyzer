@@ -2,7 +2,7 @@ import logging
 import socket
 import threading
 import uuid
-from time import time
+from time import monotonic_ns
 
 from common.loader.client_handler_resources import ClientHandlerResources
 from common.loader.stream_state import StreamState
@@ -96,7 +96,7 @@ class ClientHandler(threading.Thread):
 
     def __receive_client_message_and_publish(self, client_socket, stream_state, middleware):
         message = Protocol.receive_message(lambda n: recv_n_bytes(client_socket, n))
-        message.timestamp = time()
+        message.timestamp = monotonic_ns()
         if message.is_eof():
             self.__on_eof_threshold_reached(message.message_type, message.client_id, message.timestamp, stream_state,
                                             middleware)

@@ -12,7 +12,11 @@ from common_utils.protocol.protocol import Protocol
 
 
 def get_timestamp():
-    return time.time()
+    # always increasing clock
+    # maybe not consistent between threads but...
+    # to handle that border case, we may need an external synchronized clock
+    # or an atomic clock...
+    return time.monotonic_ns()
 
 
 class Loader(DAGNode):
