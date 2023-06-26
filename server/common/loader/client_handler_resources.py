@@ -38,6 +38,7 @@ class ClientHandlerResources:
 
         self._static_data_ack_waiter.start()
         self._metrics_waiter.start()
+        return self._static_data_ack_waiter.get_wait_event()
 
     def get_middleware(self):
         return self._middleware

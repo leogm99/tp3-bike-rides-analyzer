@@ -58,11 +58,13 @@ class ClientHandler(threading.Thread):
         client_id = ClientHandler.__get_client_id()
         stream_state = StreamState()
         try:
-            self._client_handler_resources.acquire(client_id.payload.data)
+            static_data_ack_wait_event = self._client_handler_resources.acquire(client_id.payload.data)
             Protocol.send_message(self._client_socket.sendall, client_id)
             middleware = self._client_handler_resources.get_middleware()
             while stream_state.not_static_data_eof_received():
                 self.__receive_client_message_and_publish(self._client_socket, stream_state, middleware)
+
+            static_data_ack_wait_event.wait()
 
             ack = Message.build_ack_message(client_id.payload.data)
             Protocol.send_message(self._client_socket.sendall, ack)
@@ -84,7 +86,10 @@ class ClientHandler(threading.Thread):
         finally:
             # avoid "double free"
             if not self._stop_event.is_set():
-                self._client_socket.shutdown(socket.SHUT_RDWR)
+                try:
+                    self._client_socket.shutdown(socket.SHUT_RDWR)
+                except socket.error:
+                    logging.info('action: client-socket-shutdown | message: client abruptly disconnected')
                 self._client_socket.close()
                 self._client_socket = None
             self._client_handler_resources.release()

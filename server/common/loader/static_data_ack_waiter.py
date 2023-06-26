@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Thread, Event
 
 from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
 from common_utils.protocol.message import Message
@@ -9,6 +9,7 @@ QUEUE_NAME = 'static_data_ack'
 class StaticDataAckWaiter(Thread):
     def __init__(self, needed_ack: int, middleware: StaticDataAckWaiterMiddleware):
         super().__init__()
+        self._wait_event = Event()
         self._middleware = middleware
         self._needed_ack = needed_ack
         self._ack_count = 0
@@ -30,6 +31,7 @@ class StaticDataAckWaiter(Thread):
             self._origins.add(message.origin) 
             if self._needed_ack == len(self._origins):
                 return self.close
+        self._wait_event.set()
 
     def close(self):
         if not self._closed:
@@ -38,3 +40,6 @@ class StaticDataAckWaiter(Thread):
                 self._middleware.stop()
             except BaseException as e:
                 pass
+
+    def get_wait_event(self):
+        return self._wait_event
