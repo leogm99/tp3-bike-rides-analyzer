@@ -4,9 +4,10 @@ from haversine import haversine
 
 from common.appliers.applier import Applier
 from common.appliers.haversine_applier.haversine_applier_middleware import HaversineApplierMiddleware
-from common_utils.protocol.message import Message, NULL_TYPE
+from common_utils.protocol.message import Message, NULL_TYPE, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
 
+ORIGIN_PREFIX = 'haversine_applier'
 
 class HaversineApplier(Applier):
     output_fields = {'end_station_name', 'distance'}
@@ -29,6 +30,7 @@ class HaversineApplier(Applier):
 
     def run(self):
         try:
+            self._middleware.consume_flush(f"{FLUSH}_{ORIGIN_PREFIX}_{self._middleware._node_id}", self.on_flush)
             self._middleware.receive_trips(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
         except BaseException as e:
@@ -43,22 +45,37 @@ class HaversineApplier(Applier):
             obj.data['distance'] = distance_calculated
             obj.pick_payload_fields(self.output_fields)
             new_payload.append(obj)
-        msg = Message(message_type=NULL_TYPE, payload=new_payload)
+        msg = Message(message_type=NULL_TYPE, 
+                      origin=f"ORIGIN_PREFIX_{self._middleware._node_id}",
+                      client_id=message.client_id,
+                      message_id=message.message_id,
+                      timestamp=message.timestamp,
+                      payload=new_payload)
         self.__send_message(msg)
+        self._middleware.ack_message(delivery_tag)
 
-    def on_producer_finished(self, message, delivery_tag):
-        eof = Message.build_eof_message()
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.client_id
+        timestamp = message.timestamp
+        eof = Message.build_eof_message(message_type='', client_id=client_id, timestamp=timestamp, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
         raw_eof = Protocol.serialize_message(eof)
         for i in range(self._consumers):
             self._middleware.send_aggregator_message(
                 raw_eof, i
             )
-        self._middleware.stop()
+        
 
     def __send_message(self, message: Message):
         hashes = self.hash_message(message.payload, hashing_key='end_station_name', hash_modulo=self._consumers)
         for routing_key, buffer in hashes.items():
-            msg = Message(message_type=NULL_TYPE, payload=buffer)
+            if not buffer:
+                continue
+            msg = Message(message_type=NULL_TYPE, 
+                          message_id=message.message_id,
+                          client_id=message.client_id,
+                          origin=message.origin,
+                          timestamp=message.timestamp,
+                          payload=buffer)
             raw_msg = Protocol.serialize_message(msg)
             self._middleware.send_aggregator_message(raw_msg, routing_key)
 
@@ -66,6 +83,9 @@ class HaversineApplier(Applier):
         start = float(payload.data[self._start_latitude_key]), float(payload.data[self._start_longitude_key])
         end = float(payload.data[self._end_latitude_key]), float(payload.data[self._end_longitude_key])
         return haversine(start, end)
+
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
 
     def close(self):
         if not self.closed:

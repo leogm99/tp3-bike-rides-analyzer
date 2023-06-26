@@ -2,12 +2,15 @@ import json
 import logging
 from typing import Tuple
 
+from collections import defaultdict
 from common.joiners.by_year_city_station_id.joiner_by_year_city_station_id_middleware import \
     JoinByYearCityStationIdMiddleware
 from common.joiners.joiner import Joiner
-from common_utils.protocol.message import Message, TRIPS, STATIONS, NULL_TYPE
+from common_utils.protocol.message import Message, TRIPS, STATIONS, NULL_TYPE, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
+from common_utils.KeyValueStore import KeyValueStore
 
+ORIGIN_PREFIX = 'joiner_by_year_city_station_id'
 
 class JoinByYearCityStationId(Joiner):
     def __init__(self,
@@ -20,6 +23,8 @@ class JoinByYearCityStationId(Joiner):
 
     def run(self):
         try:
+            self._side_table = KeyValueStore.loads(f"{ORIGIN_PREFIX}_{self._middleware._node_id}", default_type=defaultdict(dict))
+            self._middleware.consume_flush(f"{FLUSH}_{ORIGIN_PREFIX}_{self._middleware._node_id}", self.on_flush)
             self._middleware.receive_stations(self.on_message_callback, self.on_producer_finished)
             self._middleware.receive_trips(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
@@ -28,11 +33,11 @@ class JoinByYearCityStationId(Joiner):
                 raise e from e
             logging.info('action: run | status: success')
 
-    def join(self, payload):
+    def join(self, payload, client_id):
         buffer = []
         for obj in payload:
             obj.data['code'] = obj.data.pop('start_station_code')
-            join_data = super(JoinByYearCityStationId, self).join(obj)
+            join_data = super(JoinByYearCityStationId, self).join(obj, client_id)
             if join_data is not None:
                 del join_data.data['city']
                 del join_data.data['code']
@@ -40,31 +45,49 @@ class JoinByYearCityStationId(Joiner):
         return buffer
 
     def on_message_callback(self, message_obj: Message, delivery_tag):
-        if message_obj.is_eof():
-            return
         if message_obj.is_type(STATIONS):
-            self.insert_into_side_table(message_obj.payload)
+            self.insert_into_side_table(message_obj.payload, client_id=message_obj.client_id)
+            if self._middleware.save_stations_delivery_tag(delivery_tag):
+                self._side_table.dumps(f'{ORIGIN_PREFIX}_{self._middleware._node_id}')
+                self._middleware.ack_stations()
+
             return
-        join_data = self.join(message_obj.payload)
+        join_data = self.join(message_obj.payload, client_id=message_obj.client_id)
         if join_data:
             hashes = self.hash_message(message=join_data, hashing_key='name', hash_modulo=self._consumers)
             for routing_key_suffix, obj in hashes.items():
-                msg = Message(message_type=NULL_TYPE, payload=obj)
+                if not obj:
+                    continue
+                msg = Message(message_type=NULL_TYPE,
+                              message_id=message_obj.message_id,
+                              client_id=message_obj.client_id,
+                              origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}",
+                              timestamp=message_obj.timestamp,
+                              payload=obj)
                 raw_msg = Protocol.serialize_message(msg)
                 self._middleware.send_aggregate_message(raw_msg, routing_key_suffix)
+        self._middleware.ack_trip(delivery_tag)
 
-    def on_producer_finished(self, message, delivery_tag):
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.client_id
+        timestamp = message.timestamp
         if message.is_type(STATIONS):
-            self._middleware.cancel_consuming_stations()
-            ack = Protocol.serialize_message(Message.build_ack_message())
-            self._middleware.send_static_data_ack(ack)
-            logging.info(f'action: on-producer-finished | len-keys: {len(self._side_table.keys())}')
+            self._side_table.dumps(f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+            ack = Protocol.serialize_message(Message.build_ack_message(client_id=client_id, timestamp=timestamp, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}"))
+            self._middleware.send_static_data_ack(ack, client_id)
+            self._middleware.ack_stations()
         if message.is_type(TRIPS):
-            eof = Message.build_eof_message()
+            eof = Message.build_eof_message(message_type='', client_id=client_id, timestamp=timestamp, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
             raw_eof = Protocol.serialize_message(eof)
             for i in range(self._consumers):
                 self._middleware.send_aggregate_message(raw_eof, i)
-            self._middleware.stop()
+            
+            if client_id in self._side_table:
+                self._side_table.delete(client_id)
+
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
+        self._side_table.nuke(f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
 
     def close(self):
         if not self.closed:

@@ -1,13 +1,21 @@
 from common.rabbit.rabbit_blocking_connection import RabbitBlockingConnection
 from common.rabbit.rabbit_exchange import RabbitExchange
 from common.rabbit.rabbit_queue import RabbitQueue
+from common_utils.KeyValueStore import KeyValueStore
+from collections import defaultdict
 
+FLUSH_EXCHANGE_NAME = 'flush'
+FLUSH_EXCHANGE_TYPE = 'fanout'
 
 class Middleware:
-    def __init__(self, hostname: str):
+    def __init__(self, hostname: str, prefetch_count: int = 50):
         self._rabbit_connection = RabbitBlockingConnection(
             rabbit_hostname=hostname,
+            prefetch_count=prefetch_count,
         )
+
+        self._flush_queue = None
+        self.timestamp_store = None
 
     def start(self):
         self._rabbit_connection.start_consuming()
@@ -25,3 +33,13 @@ class Middleware:
     def stop(self):
         self._rabbit_connection.close()
 
+    def consume_flush(self, owner, callback):
+        self.timestamp_store = KeyValueStore.loads(f"timestamp_store.json", default_type=defaultdict(float))
+        self._flush_queue = RabbitQueue(
+            rabbit_connection=self._rabbit_connection,
+            queue_name = f"{owner}",
+            bind_exchange=FLUSH_EXCHANGE_NAME,
+            bind_exchange_type=FLUSH_EXCHANGE_TYPE
+        )
+        self._flush_queue.consume(lambda: None, lambda: None, callback)
+        return self.timestamp_store['timestamp']

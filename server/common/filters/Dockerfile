@@ -8,3 +8,4 @@ COPY ./server/main.py /main.py
 COPY ./server/common/rabbit /common/rabbit
 COPY ./server/common/middleware /common/middleware
 COPY ./server/common/filters/filter.py /common/filters/filter.py
+COPY ./server/common/watched /common/watched

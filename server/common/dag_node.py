@@ -3,9 +3,12 @@ import logging
 import signal
 from hashlib import md5
 
+from common.watched.watched import Watched
 
-class DAGNode(abc.ABC):
+
+class DAGNode(Watched):
     def __init__(self):
+        super().__init__()
         self.__register_sigterm_handle()
         self.closed = False
 
@@ -23,6 +26,7 @@ class DAGNode(abc.ABC):
 
     def close(self):
         logging.info('action: close-dag-node')
+        super().stop()
         if not self.closed:
             self.closed = True
 

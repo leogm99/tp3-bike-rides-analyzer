@@ -1,17 +1,18 @@
 import socket
 import logging
+import threading
+import time
 import queue
 
+from common.loader.client_handler import ClientHandler
 from common.loader.loader_middleware import LoaderMiddleware
-from common.loader.metrics_waiter import MetricsWaiter
-from common.loader.metrics_waiter_middleware import MetricsWaiterMiddleware
-from common_utils.utils import receive_string_message, recv_n_bytes, send_string_message
 from common.dag_node import DAGNode
-from common.loader.static_data_ack_waiter import StaticDataAckWaiter
-from common.loader.static_data_ack_waiter_middleware import StaticDataAckWaiterMiddleware
-from common_utils.protocol.message import Message, TRIPS, WEATHER, STATIONS
-from common_utils.protocol.payload import Payload
+from common_utils.protocol.message import Message
 from common_utils.protocol.protocol import Protocol
+
+
+def get_timestamp():
+    return time.time()
 
 
 class Loader(DAGNode):
@@ -22,34 +23,34 @@ class Loader(DAGNode):
                  weather_consumer_replica_count: int,
                  trips_consumer_replica_count: int,
                  ack_count: int,
-                 middleware: LoaderMiddleware,
-                 static_data_ack_middleware: StaticDataAckWaiterMiddleware,
-                 metrics_waiter_middleware: MetricsWaiterMiddleware):
+                 middleware_callback,
+                 hostname: str,
+                 max_clients: int):
         super().__init__()
         try:
-            self._socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0)
-            self._socket.bind(('', port))
-            self._socket.listen(backlog)
+            self._socket = None
+            self._port = port
+            self._backlog = backlog
 
-            self._middleware = middleware
+            self._middleware_callback = middleware_callback
 
             self._stations_consumer_replica_count = stations_consumer_replica_count
             self._weather_consumer_replica_count = weather_consumer_replica_count
             self._trips_consumer_replica_count = trips_consumer_replica_count
 
-            self._static_ack_waiter = StaticDataAckWaiter(
-                ack_count,
-                middleware=static_data_ack_middleware,
-            )
-            self._local_queue = queue.Queue()
-            self._metrics_waiter = MetricsWaiter(
-                local_queue=self._local_queue,
-                middleware=metrics_waiter_middleware,
-            )
-            self._weather_eof = False
-            self._stations_eof = False
-            self._trips_eof = False
-            self._client_sock = None
+            self._ack_count = ack_count
+            self._hostname = hostname
+            self._clients_number = max_clients
+
+            self._client_socket_queue = queue.Queue()
+            self._middleware: LoaderMiddleware = self._middleware_callback()
+            self._middleware.create_flush_channel()
+            self.__send_flush()
+
+            self._client_handlers = []
+            self._client_semaphore = threading.BoundedSemaphore(value=self._clients_number)
+            self._stop_event = threading.Event()
+            self.__launch_client_handlers()
 
         except socket.error as se:
             logging.error(f'action: socket-create | status: failed | reason: {se}')
@@ -60,31 +61,59 @@ class Loader(DAGNode):
 
     def run(self):
         try:
-            self._static_ack_waiter.start()
-            self._metrics_waiter.start()
-            logging.info('action: run | status: in progress')
-            client_socket, _ = self._socket.accept()
-            self._client_sock = client_socket
-            logging.info(f'action: socket-accept | status: success')
-            while not self._weather_eof or not self._stations_eof:
-                self.__receive_client_message_and_publish(self._client_sock)
-            self._static_ack_waiter.join()
-            ack = Message.build_ack_message()
-            Protocol.send_message(self._client_sock.sendall, ack)
-            while not self._trips_eof:
-                self.__receive_client_message_and_publish(self._client_sock)
-            logging.info('action: receiving-metrics | status: in progress')
-            metrics_obj = self._local_queue.get(block=True, timeout=None)
-            logging.info('action: receiving-metrics | status: success')
-            self._metrics_waiter.join()
-            logging.info('action: sending metrics to client | status: in progress')
-            Protocol.send_message(self._client_sock.sendall, metrics_obj)
-            self.close()
-        except BrokenPipeError:
-            logging.info('action: receive_client_message | connection closed by client')
+            self.__accept_clients()
+        except socket.error as e:
+            logging.info(f'action: accept-clients | status: stopped')
         except BaseException as e:
-            if not self.closed:
-                raise e from e
+            logging.error(f'action: run | error: {e}')
+
+    def close(self):
+        logging.info('action: loader-close | status: in progress')
+        if not self.closed:
+            self._middleware.stop()
+            self._socket.shutdown(socket.SHUT_RDWR)
+            self._socket.close()
+            logging.debug('action: loader-close | stopping client handlers')
+            # in case some handler is waiting in the queue...
+            for _ in range(len(self._client_handlers)):
+                self._client_socket_queue.put_nowait(None)
+            for ch in self._client_handlers:
+                ch.stop()
+                ch.join()
+
+            logging.debug('action: loader-close | stopped client_handlers')
+            super(Loader, self).close()
+        logging.info('action: loader-close | status: successful')
+
+    def __launch_client_handlers(self):
+        for _ in range(self._clients_number):
+            client_handler = ClientHandler(
+                hostname=self._hostname,
+                client_socket_queue=self._client_socket_queue,
+                client_semaphore=self._client_semaphore,
+                middleware_factory=self._middleware_callback,
+                trips_consumer_replica_count=self._trips_consumer_replica_count,
+                weather_consumer_replica_count=self._weather_consumer_replica_count,
+                stations_consumer_replica_count=self._weather_consumer_replica_count,
+                ack_count=self._ack_count,
+                stop_event=self._stop_event,
+            )
+            client_handler.start()
+            self._client_handlers.append(client_handler)
+
+    def __accept_clients(self):
+        self._open_server_socket()
+        while True:
+            logging.info('action: Accepting clients | status: in progress')
+            client_socket, _ = self._socket.accept()
+            # should not throw exception as the queue has no upper bound
+            self._client_socket_queue.put_nowait(client_socket)
+            self._client_semaphore.acquire()
+
+    def _open_server_socket(self):
+        self._socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0)
+        self._socket.bind(('', self._port))
+        self._socket.listen(self._backlog)
 
     def on_message_callback(self, message, delivery_tag):
         raise NotImplementedError
@@ -92,52 +121,8 @@ class Loader(DAGNode):
     def on_producer_finished(self, message, delivery_tag):
         raise NotImplementedError
 
-    def on_eof_threshold_reached(self, eof_type: str):
-        if eof_type == STATIONS:
-            replica_count = self._stations_consumer_replica_count
-            send = self._middleware.send_stations
-            self._stations_eof = True
-        elif eof_type == WEATHER:
-            replica_count = self._weather_consumer_replica_count
-            send = self._middleware.send_weather
-            self._weather_eof = True
-        elif eof_type == TRIPS:
-            replica_count = self._trips_consumer_replica_count
-            send = self._middleware.send_trips
-            self._trips_eof = True
-        else:
-            raise ValueError("Invalid type of data received")
-        eof = Message.build_eof_message()
-        for _ in range(replica_count):
-            send(Protocol.serialize_message(eof))
-
-    def __receive_client_message_and_publish(self, client_socket):
-        message = Protocol.receive_message(lambda n: recv_n_bytes(client_socket, n))
-        if message.is_eof():
-            self.on_eof_threshold_reached(message.message_type)
-        else:
-            raw_message = Protocol.serialize_message(message)
-            if message.is_type(TRIPS):
-                self._middleware.send_trips(raw_message)
-            elif message.is_type(STATIONS):
-                self._middleware.send_stations(raw_message)
-            elif message.is_type(WEATHER):
-                self._middleware.send_weather(raw_message)
-            else:
-                raise ValueError("Invalid type of data received")
-
-    def close(self):
-        if not self.closed:
-            logging.info('action: close | status: in-progress')
-            super(Loader, self).close()
-            if self._client_sock:
-                self._client_sock.shutdown(socket.SHUT_RDWR)
-                self._client_sock.close()
-            self._socket.shutdown(socket.SHUT_RDWR)
-            self._socket.close()
-            if self._metrics_waiter.is_alive():
-                self._metrics_waiter.close()
-                self._metrics_waiter.join()
-            if self._static_ack_waiter.is_alive():
-                self._static_ack_waiter.close()
-                self._static_ack_waiter.join()
+    def __send_flush(self):
+        flush_timestamp = get_timestamp()
+        flush_message = Message.build_flush_message(flush_timestamp)
+        flush_message = Protocol.serialize_message(flush_message)
+        self._middleware.send_flush(flush_message)

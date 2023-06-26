@@ -8,3 +8,4 @@ COPY ./server/common/rabbit /common/rabbit
 COPY ./server/common/middleware /common/middleware
 COPY ./server/main.py /main.py
 COPY ./server/common/consumers/trips_consumer /common/consumers/trips_consumer
+COPY ./server/common/watched /common/watched

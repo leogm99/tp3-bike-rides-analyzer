@@ -4,7 +4,6 @@ PWD := $(shell pwd)
 docker-image:
 	docker build -f ./base-images/client.dockerfile -t "client:latest" .
 	docker build -f ./base-images/server.dockerfile -t "server:latest" .
-	docker build -f ./client/Dockerfile -t "client:latest" .
 
 	docker build -f ./server/common/loader/Dockerfile -t "loader:latest" .
 
@@ -32,6 +31,8 @@ docker-image:
 
 	docker build -f ./server/common/appliers/Dockerfile -t "applier:latest" .
 	docker build -f ./server/common/appliers/haversine_applier/Dockerfile -t "haversine_applier:latest" .
+
+	docker build -f ./server/common/watchers/Dockerfile -t "watcher:latest" .
 .PHONY: docker-image
 
 docker-compose-up: docker-image
@@ -39,7 +40,7 @@ docker-compose-up: docker-image
 .PHONY: docker-compose-up
 
 docker-compose-down:
-	docker compose -f ./docker-compose.yml stop -t 1
+	docker compose -f ./docker-compose.yml stop -t 5
 	docker compose -f ./docker-compose.yml down
 .PHONY: docker-compose-down
 

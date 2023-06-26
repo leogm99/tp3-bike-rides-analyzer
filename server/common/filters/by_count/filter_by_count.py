@@ -3,9 +3,10 @@ import logging
 
 from common.filters.by_count.filter_by_count_middleware import FilterByCountMiddleware
 from common.filters.numeric_range.numeric_range import NumericRange
-from common_utils.protocol.message import Message, COUNT_METRIC
+from common_utils.protocol.message import Message, COUNT_METRIC, CLIENT_ID, FLUSH
 from common_utils.protocol.protocol import Protocol
 
+ORIGIN_PREFIX = 'filter_by_count'
 
 class FilterByCount(NumericRange):
     def __init__(self,
@@ -19,6 +20,7 @@ class FilterByCount(NumericRange):
 
     def run(self):
         try:
+            self._middleware.consume_flush(f"{FLUSH}_{ORIGIN_PREFIX}_{self._middleware._node_id}", self.on_flush)
             self._middleware.receive_count_aggregate(self.on_message_callback, self.on_producer_finished)
             self._middleware.start()
         except BaseException as e:
@@ -31,6 +33,7 @@ class FilterByCount(NumericRange):
             return
         # filter data that has no counts the previous year
         if message_obj.payload.data['year_2016'] == 0:
+            self._middleware.ack_message(delivery_tag)
             return
         # trips_2017 > 2*trips_2016 <-> trips_2017/2 > trips_2016
         self.high = float(message_obj.payload.data['year_2017']) / 2
@@ -39,10 +42,17 @@ class FilterByCount(NumericRange):
             obj.message_type = COUNT_METRIC
             raw_message = Protocol.serialize_message(obj)
             self._middleware.send_metrics_message(raw_message)
+        self._middleware.ack_message(delivery_tag)
 
-    def on_producer_finished(self, message, delivery_tag):
-        self._middleware.send_metrics_message(json.dumps({'type': 'count_metric', 'payload': 'EOF'}))
-        self._middleware.stop()
+    def on_producer_finished(self, message: Message, delivery_tag):
+        client_id = message.client_id
+        timestamp = message.timestamp
+        eof = Message.build_eof_message(message_type=COUNT_METRIC, client_id=client_id, timestamp=timestamp, origin=f"{ORIGIN_PREFIX}_{self._middleware._node_id}")
+        raw_eof = Protocol.serialize_message(eof)
+        self._middleware.send_metrics_message(raw_eof)
+        
+    def on_flush(self, message: Message, _delivery_tag):
+        self._middleware.flush(message.timestamp)
 
     def close(self):
         if not self.closed:

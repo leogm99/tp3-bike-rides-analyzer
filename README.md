@@ -30,3 +30,5 @@ at `scripts/generate_compose_file.py`. Once called, you generate a new docker-co
 ## Output
 
 You will find the output at `client/output`.
+
+#python3 generate_compose_file.py --trips_consumer=3 --joiner_by_year_city_station_id=5 --aggregate_trip_count=2

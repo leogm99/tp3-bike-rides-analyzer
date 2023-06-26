@@ -22,5 +22,17 @@ class MetricsConsumerMiddleware(Middleware):
         self._input_queue.consume(on_message_callback, on_end_message_callback)
         pass
 
-    def send_metrics_message(self, message):
-        self._output_exchange.publish(message, routing_key=LOADER_ROUTING_KEY)
+    def send_metrics_message(self, message, client_id):
+        self._output_exchange.publish(message, routing_key=LOADER_ROUTING_KEY + '_' + str(client_id))
+
+    def ack_message(self, delivery_tag):
+        self._input_queue.ack(delivery_tag)
+
+    def flush(self, timestamp):
+        self.timestamp_store['timestamp'] = timestamp
+        self.timestamp_store.dumps('timestamp_store.json')
+        self._input_queue.flush(timestamp)
+
+    def consume_flush(self, owner, callback):
+        ts = super().consume_flush(owner, callback)
+        self._input_queue.set_global_flush_timestamp(ts)
