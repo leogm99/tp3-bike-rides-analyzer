@@ -1,7 +1,6 @@
 import socket
 import logging
 import threading
-import time
 import queue
 
 from common.loader.client_handler import ClientHandler
@@ -9,14 +8,6 @@ from common.loader.loader_middleware import LoaderMiddleware
 from common.dag_node import DAGNode
 from common_utils.protocol.message import Message
 from common_utils.protocol.protocol import Protocol
-
-
-def get_timestamp():
-    # always increasing clock
-    # maybe not consistent between threads but...
-    # to handle that border case, we may need an external synchronized clock
-    # or an atomic clock...
-    return time.monotonic_ns()
 
 
 class Loader(DAGNode):
@@ -29,12 +20,15 @@ class Loader(DAGNode):
                  ack_count: int,
                  middleware_callback,
                  hostname: str,
-                 max_clients: int):
+                 max_clients: int,
+                 time_monotonic: bool):
         super().__init__()
         try:
             self._socket = None
             self._port = port
             self._backlog = backlog
+            self._time_monotonic = time_monotonic
+            self._timestamp_func = self.get_timestamp_function()
 
             self._middleware_callback = middleware_callback
 
@@ -101,6 +95,7 @@ class Loader(DAGNode):
                 stations_consumer_replica_count=self._weather_consumer_replica_count,
                 ack_count=self._ack_count,
                 stop_event=self._stop_event,
+                timestamp_function=self._timestamp_func,
             )
             client_handler.start()
             self._client_handlers.append(client_handler)
@@ -126,7 +121,26 @@ class Loader(DAGNode):
         raise NotImplementedError
 
     def __send_flush(self):
-        flush_timestamp = get_timestamp()
+        flush_timestamp = self._timestamp_func()
         flush_message = Message.build_flush_message(flush_timestamp)
         flush_message = Protocol.serialize_message(flush_message)
         self._middleware.send_flush(flush_message)
+
+    def get_timestamp_function(self):
+        '''
+            Returns the timestamp function to use when flushing the system.
+
+            This is configurable.
+            If for some reason the operating system does not implement `time.monotonic`
+            system-wide (that is, consistent between cores), then the user could use
+            the TimestampMonitor, which guarantees consistent timestamps between threads,
+            at the cost of performance.
+        '''
+        if self._time_monotonic:
+            from time import monotonic_ns
+            return monotonic_ns
+        else:
+            from common.loader.timestamps import TimestampMonitor
+            ts = TimestampMonitor()
+            return ts.get_new_timestamp
+

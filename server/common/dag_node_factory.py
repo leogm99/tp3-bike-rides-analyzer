@@ -27,6 +27,7 @@ def build_node(node_name: str, config_params: Dict[str, Any]) -> DAGNode:
             middleware_callback=create_loader_middleware,
             hostname=config_params['rabbit_hostname'],
             max_clients=int(config_params['max_clients']),
+            time_monotonic=bool(config_params['time_monotonic']),
         )
     elif node_name == 'TRIPS_CONSUMER':
         from common.consumers.trips_consumer.trips_consumer import TripsConsumer

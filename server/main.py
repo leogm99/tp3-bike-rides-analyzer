@@ -11,6 +11,7 @@ def main():
         logging_level='LOGGING_LEVEL',
         backlog='BACKLOG',
         rabbit_hostname='RABBIT_HOSTNAME',
+        time_monotonic='TIME_MONOTONIC',
         node_name='NODE_NAME',
         weather_consumer_replicas='WEATHER_CONSUMER_REPLICAS',
         stations_consumer_replicas='STATIONS_CONSUMER_REPLICAS',

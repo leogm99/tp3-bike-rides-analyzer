@@ -2,7 +2,6 @@ import logging
 import socket
 import threading
 import uuid
-from time import monotonic_ns
 
 from common.loader.client_handler_resources import ClientHandlerResources
 from common.loader.stream_state import StreamState
@@ -21,7 +20,8 @@ class ClientHandler(threading.Thread):
                  weather_consumer_replica_count,
                  stations_consumer_replica_count,
                  ack_count,
-                 stop_event):
+                 stop_event,
+                 timestamp_function):
         super().__init__()
         self._stop_event = stop_event
         self._client_socket_queue = client_socket_queue
@@ -37,6 +37,8 @@ class ClientHandler(threading.Thread):
         self._trips_consumer_replica_count = trips_consumer_replica_count
         self._weather_consumer_replica_count = weather_consumer_replica_count
         self._stations_consumer_replica_count = stations_consumer_replica_count
+
+        self._timestamp_function = timestamp_function
 
     def run(self) -> None:
         logging.info('action: client-handler-run | status: waiting clients')
@@ -96,7 +98,7 @@ class ClientHandler(threading.Thread):
 
     def __receive_client_message_and_publish(self, client_socket, stream_state, middleware):
         message = Protocol.receive_message(lambda n: recv_n_bytes(client_socket, n))
-        message.timestamp = monotonic_ns()
+        message.timestamp = self._timestamp_function()
         if message.is_eof():
             self.__on_eof_threshold_reached(message.message_type, message.client_id, message.timestamp, stream_state,
                                             middleware)
