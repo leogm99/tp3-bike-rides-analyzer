@@ -118,6 +118,7 @@ class Client:
         if len(send_buffer) != 0:
             msg = Message(message_type=data_type, payload=send_buffer, message_id=message_id, client_id=client_id)
             Protocol.send_message(send_callback, msg)
+            message_id += 1
         return message_id
 
     def __send_all_process_safe(self, payload):
