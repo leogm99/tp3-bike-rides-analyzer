@@ -93,9 +93,10 @@ class Client:
                 with open(data_path, newline='') as source:
                     reader = csv.DictReader(f=source)
                     message_id = Client.read_and_send_batched(reader, client_id, message_id, city, data_type, send_callback)
-            Client.send_eof(client_id, data_type, send_callback)
         except BaseException:
             return
+        finally:
+            Client.send_eof(client_id, data_type, send_callback)
 
     @staticmethod
     def send_eof(client_id, message_type, send_callback):
